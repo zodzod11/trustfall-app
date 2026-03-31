@@ -1,4 +1,4 @@
-import { PageHeader } from '../components/layout/PageHeader'
+import { Link } from 'react-router-dom'
 import { usersSeed } from '../data/seed'
 import { useSaved } from '../hooks/useSaved'
 
@@ -9,11 +9,28 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-10">
-      <PageHeader
-        eyebrow="Account"
-        title="Profile"
-        description="Your preferences, saved collections, and recent request activity."
-      />
+      <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
+        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+          <Link
+            to="/explore"
+            aria-label="Trustfall home"
+            className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
+              TF
+            </span>
+          </Link>
+          <div className="text-center">
+            <h1 className="text-center text-[2rem] font-semibold tracking-tight text-primary">
+              Profile
+            </h1>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+              Account
+            </p>
+          </div>
+          <span aria-hidden className="h-10 w-10" />
+        </div>
+      </header>
 
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-lg font-semibold text-primary-foreground">
@@ -84,14 +101,33 @@ export function ProfilePage() {
         {recentRequests.length > 0 ? (
           <ul className="space-y-2.5">
             {recentRequests.map((request) => (
-              <li key={request.createdAt + request.portfolioItemId} className="tf-card p-4">
-                <p className="text-sm font-medium text-secondary">{request.proName}</p>
-                <p className="mt-1 text-xs text-muted line-clamp-2">{request.message}</p>
-                <p className="mt-2 text-[11px] text-muted">
-                  {request.preferredDate
-                    ? `Preferred date: ${request.preferredDate}`
-                    : 'No preferred date'}
-                </p>
+              <li
+                key={request.createdAt + request.portfolioItemId}
+                className="tf-card flex gap-3 overflow-hidden p-4"
+              >
+                {request.portfolioImageUrl ? (
+                  <div className="h-16 w-14 shrink-0 overflow-hidden rounded-lg border border-border">
+                    <img
+                      src={request.portfolioImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-secondary">{request.proName}</p>
+                  {(request.clientName || request.clientEmail) ? (
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {[request.clientName, request.clientEmail].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-muted line-clamp-2">{request.message}</p>
+                  <p className="mt-2 text-[11px] text-muted">
+                    {request.preferredDate
+                      ? `Preferred date: ${request.preferredDate}`
+                      : 'No preferred date'}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>

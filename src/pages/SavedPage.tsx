@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { PortfolioCard, type PortfolioFeedItem } from '../components/explore/PortfolioCard'
-import { PageHeader } from '../components/layout/PageHeader'
 import { professionalsSeed } from '../data/seed'
 import { useSaved } from '../hooks/useSaved'
 
@@ -13,6 +12,8 @@ export function SavedPage() {
       professionalName: pro.displayName,
       professionalTitle: pro.title,
       location: pro.city,
+      professionalPhone: pro.bookingPhone,
+      professionalEmail: pro.bookingEmail,
     })),
   )
 
@@ -28,12 +29,29 @@ export function SavedPage() {
     savedPortfolioItems.length === 0 && savedProfessionals.length === 0
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Your list"
-        title="Saved"
-        description="Collect favorite looks and professionals to revisit quickly."
-      />
+    <div className="space-y-5">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
+        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+          <Link
+            to="/explore"
+            aria-label="Trustfall home"
+            className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
+              TF
+            </span>
+          </Link>
+          <div className="text-center">
+            <h1 className="text-center text-[2rem] font-semibold tracking-tight text-primary">
+              Saved
+            </h1>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+              Your list
+            </p>
+          </div>
+          <span aria-hidden className="h-10 w-10" />
+        </div>
+      </header>
 
       {!isEmpty ? (
         <p className="text-xs font-medium text-muted">
@@ -90,9 +108,12 @@ export function SavedPage() {
                       ) : null}
                     </div>
                     <div className="min-w-0 space-y-1 py-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
+                      <Link
+                        to={`/pros/${pro.id}`}
+                        className="truncate text-sm font-semibold text-foreground transition hover:text-accent"
+                      >
                         {pro.displayName}
-                      </p>
+                      </Link>
                       <p className="text-xs text-muted">
                         {pro.title} · {pro.city}
                       </p>

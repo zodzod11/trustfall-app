@@ -28,6 +28,12 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
 }
 
 #root {
@@ -60,4 +66,13 @@ body {
 
 .tf-nav-shell {
   @apply border-t border-border bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70;
+}
+
+.tf-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tf-no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

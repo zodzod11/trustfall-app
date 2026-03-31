@@ -13,6 +13,7 @@ export const usersSeed: User[] = [
     firstName: 'Maya',
     lastName: 'Johnson',
     email: 'maya.johnson@example.com',
+    phone: '+17135550100',
     city: 'Houston',
     preferredCategories: ['hair', 'makeup'],
     budgetMin: 85,
@@ -159,6 +160,8 @@ export const professionalsSeed: Professional[] = [
     reviewCount: 214,
     yearsExperience: 11,
     about: 'Fade specialist known for clean tapers and detailed beard shaping.',
+    bookingPhone: '+16177550418',
+    bookingEmail: 'zodzod11@gmail.com',
     portfolioItems: barberPortfolio,
   },
   {

@@ -41,10 +41,12 @@ export function ExploreDetailPage() {
       location: pro.city,
       professionalRating: pro.rating,
       professionalReviewCount: pro.reviewCount,
-      professionalYearsExperience: pro.yearsExperience,
-      professionalAbout: pro.about,
-      professionalId: pro.id,
-    })),
+        professionalYearsExperience: pro.yearsExperience,
+        professionalAbout: pro.about,
+        professionalId: pro.id,
+        professionalPhone: pro.bookingPhone,
+        professionalEmail: pro.bookingEmail,
+      })),
   )
 
   const selectedItem = portfolioFeed.find((item) => item.id === id)
@@ -113,7 +115,13 @@ export function ExploreDetailPage() {
                 Pro Info
               </p>
               <p className="text-sm font-medium text-secondary">
-                {selectedItem.professionalName} · {selectedItem.professionalTitle}
+                <Link
+                  to={`/pros/${selectedItem.professionalId}`}
+                  className="transition hover:text-accent"
+                >
+                  {selectedItem.professionalName}
+                </Link>{' '}
+                · {selectedItem.professionalTitle}
               </p>
               <p className="text-sm leading-relaxed text-muted">
                 {selectedItem.professionalAbout}
@@ -169,12 +177,15 @@ export function ExploreDetailPage() {
                   : 'Use This Look'}
               </button>
               <a
-                href="tel:+17135551234"
+                href={`tel:${selectedItem.professionalPhone ?? '+17135551234'}`}
                 className="tf-button-secondary w-full text-center"
               >
                 Call
               </a>
-              <a href="sms:+17135551234" className="tf-button-secondary w-full text-center">
+              <a
+                href={`sms:${selectedItem.professionalPhone ?? '+17135551234'}`}
+                className="tf-button-secondary w-full text-center"
+              >
                 Text
               </a>
             </div>
@@ -188,7 +199,13 @@ export function ExploreDetailPage() {
 
           <section className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted">
-              More Work From {selectedItem.professionalName}
+              More Work From{' '}
+              <Link
+                to={`/pros/${selectedItem.professionalId}`}
+                className="text-secondary transition hover:text-accent"
+              >
+                {selectedItem.professionalName}
+              </Link>
             </h2>
             {moreFromSamePro.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
@@ -212,6 +229,8 @@ export function ExploreDetailPage() {
           portfolioImageUrl={selectedItem.afterImageUrl}
           serviceTitle={selectedItem.serviceTitle}
           proName={selectedItem.professionalName}
+          phoneNumber={selectedItem.professionalPhone ?? '+17135551234'}
+          proEmail={selectedItem.professionalEmail}
           initialMessage={requestMessagePrefill}
           onSubmit={addRequestSubmission}
         />

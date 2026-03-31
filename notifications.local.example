@@ -1,0 +1,26 @@
+NOTIFY_PORT=8787
+
+# Email-only by default. Set ENABLE_SMS=true when Twilio is configured.
+# ENABLE_SMS=true
+
+# Ops inbox (SendGrid "to")
+NOTIFY_TO_EMAIL=zodzod11@gmail.com
+
+# Optional: only used when ENABLE_SMS=true
+# NOTIFY_TO_PHONE=+16177550418
+# TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# TWILIO_FROM_NUMBER=+18333156663
+
+# SendGrid email configuration
+SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SENDGRID_FROM_EMAIL=verified-sender@example.com
+# Optional only for EU regional subusers
+# SENDGRID_REGION=eu
+
+# Optional: SendGrid Dynamic Template (transactional) — omit to use the built-in HTML.
+# Template can use Handlebars: {{pro_name}}, {{client_email}}, {{service_title}}, {{portfolio_image_url}},
+# {{#if show_inspiration}}<img src="cid:tf-inspiration" alt="Inspiration" width="400" />{{/if}}
+# {{#if show_current}}<img src="cid:tf-current" alt="Current" width="400" />{{/if}}
+# Uploads are sent as inline attachments with fixed content IDs: tf-inspiration, tf-current
+# SENDGRID_REQUEST_TEMPLATE_ID=d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

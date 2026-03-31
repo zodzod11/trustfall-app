@@ -7,6 +7,7 @@ import { MatchPage } from './pages/MatchPage'
 import { MatchResultsPage } from './pages/MatchResultsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ProfessionalPage } from './pages/ProfessionalPage'
 import { SavedPage } from './pages/SavedPage'
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/match/results" element={<MatchResultsPage />} />
             <Route path="/saved" element={<SavedPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/pros/:id" element={<ProfessionalPage />} />
           </Route>
           <Route path="/" element={<Navigate to="/explore" replace />} />
           <Route path="*" element={<Navigate to="/explore" replace />} />

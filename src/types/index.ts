@@ -20,6 +20,8 @@ export type User = {
   firstName: string
   lastName: string
   email: string
+  /** Optional — used for request contact prefills / future auth profile. */
+  phone?: string
   city: string
   preferredCategories: ServiceCategory[]
   budgetMin: number
@@ -47,6 +49,9 @@ export type Professional = {
   reviewCount: number
   yearsExperience: number
   about: string
+  /** Mock / placeholder contact for Call, Text, and notifications (E.164 when possible). */
+  bookingPhone?: string
+  bookingEmail?: string
   portfolioItems: PortfolioItem[]
 }
 
@@ -83,10 +88,35 @@ export type MatchResult = {
 
 export type MatchRequestDraft = {
   imageName: string
+  currentPhotoName?: string
   notes: string
   tags: string[]
-  category: ServiceCategory | ''
+  category: ServiceCategory | 'brows' | 'tattoo' | ''
   location: string
+}
+
+/** Match results list — paired portfolio thumbnails per professional. */
+export type MatchResultsMatchedPiece = {
+  id: string
+  imageUrl: string
+  serviceTitle: string
+  scoreLabel: string
+}
+
+export type MatchResultsRankedProfessional = {
+  id: string
+  name: string
+  title: string
+  city: string
+  rating: number
+  portfolioImageUrl: string
+  portfolioItemId: string
+  serviceTitle: string
+  phoneNumber: string
+  proEmail?: string
+  scoreLabel: string
+  labels: string[]
+  matchedPieces: MatchResultsMatchedPiece[]
 }
 
 export type RequestSubmission = {
@@ -97,4 +127,9 @@ export type RequestSubmission = {
   inspirationImageName: string
   currentPhotoName: string
   createdAt: string
+  clientName?: string
+  clientEmail?: string
+  clientPhone?: string
+  /** Selected look preview URL (https) — shown in notification email. */
+  portfolioImageUrl?: string
 }

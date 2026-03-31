@@ -1,30 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import {
-  DEFAULT_REQUEST_MESSAGE,
-  RequestModal,
-} from '../components/explore/RequestModal'
+import { RequestModal } from '../components/explore/RequestModal'
+import { MatchResultPiecePreview } from '../components/match/MatchResultPiecePreview'
 import { PageHeader } from '../components/layout/PageHeader'
 import { professionalsSeed } from '../data/seed'
 import { useSaved } from '../hooks/useSaved'
-import type { MatchRequestDraft } from '../types'
+import type { MatchRequestDraft, MatchResultsRankedProfessional } from '../types'
+import { cn } from '../utils/cn'
+import { buildMatchRequestPrefillMessage } from '../utils/matchRequestPrefill'
+import {
+  clearMatchUploadSession,
+  readMatchUploadFilesFromSession,
+} from '../utils/matchUploadSession'
 
 type MatchResultsState = {
   request?: MatchRequestDraft
-}
-
-type RankedProfessional = {
-  id: string
-  name: string
-  title: string
-  city: string
-  rating: number
-  portfolioImageUrl: string
-  portfolioItemId: string
-  serviceTitle: string
-  phoneNumber: string
-  scoreLabel: string
-  labels: string[]
 }
 
 export function MatchResultsPage() {
@@ -33,10 +23,21 @@ export function MatchResultsPage() {
   const request = state?.request
   const [isPending, setIsPending] = useState(true)
   const [activeRequestTarget, setActiveRequestTarget] =
-    useState<RankedProfessional | null>(null)
+    useState<MatchResultsRankedProfessional | null>(null)
+  const [piecePreview, setPiecePreview] = useState<{
+    ranked: MatchResultsRankedProfessional
+    portfolioItemId: string
+  } | null>(null)
+  const [requestUploadPrefill, setRequestUploadPrefill] = useState<{
+    inspiration: File | null
+    current: File | null
+  }>({ inspiration: null, current: null })
+  const [selectedPieceByProId, setSelectedPieceByProId] = useState<
+    Record<string, string>
+  >({})
   const { requestSubmissions, addRequestSubmission } = useSaved()
 
-  const ranked: RankedProfessional[] = useMemo(
+  const ranked: MatchResultsRankedProfessional[] = useMemo(
     () => rankProfessionals(request),
     [request],
   )
@@ -122,12 +123,33 @@ export function MatchResultsPage() {
 
       {!isPending && ranked.length > 0 ? (
         <ol className="space-y-4">
-          {ranked.map((item, i) => (
+          {ranked.map((item, i) => {
+            const selectedPieceId = selectedPieceByProId[item.id]
+            const selectedPiece =
+              item.matchedPieces.find((piece) => piece.id === selectedPieceId) ??
+              item.matchedPieces[0]
+            const portfolioImageUrl = selectedPiece?.imageUrl ?? item.portfolioImageUrl
+            const selectedServiceTitle = selectedPiece?.serviceTitle ?? item.serviceTitle
+            const selectedPortfolioItemId =
+              selectedPiece?.id ?? item.portfolioItemId
+            const selectedScoreLabel = selectedPiece?.scoreLabel ?? item.scoreLabel
+
+            return (
             <li key={item.id} className="tf-card overflow-hidden">
               <div className="grid grid-cols-[112px_1fr] gap-4 p-4">
-                <div className="relative h-[128px] overflow-hidden rounded-xl bg-surface-elevated">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPiecePreview({
+                      ranked: item,
+                      portfolioItemId: selectedPortfolioItemId,
+                    })
+                  }
+                  className="relative block h-[128px] w-full overflow-hidden rounded-xl bg-surface-elevated text-left ring-offset-background transition hover:ring-2 hover:ring-primary/40"
+                  aria-label={`Review portfolio piece: ${selectedServiceTitle}`}
+                >
                   <img
-                    src={item.portfolioImageUrl}
+                    src={portfolioImageUrl}
                     alt={`${item.name} portfolio result`}
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -135,17 +157,36 @@ export function MatchResultsPage() {
                   <div className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/85 text-xs font-semibold text-accent">
                     {i + 1}
                   </div>
-                </div>
+                </button>
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-base font-semibold text-foreground">{item.name}</h2>
+                    <h2 className="text-base font-semibold text-foreground">
+                      <Link to={`/pros/${item.id}`} className="transition hover:text-accent">
+                        {item.name}
+                      </Link>
+                    </h2>
                     <span className="text-xs font-semibold uppercase tracking-wider text-accent">
-                      {item.scoreLabel}
+                      {selectedScoreLabel}
                     </span>
                   </div>
                   <p className="text-sm text-secondary">
                     {item.title} · {item.city}
                   </p>
+                  <p className="line-clamp-1 text-xs text-muted">
+                    Best matching look: {selectedServiceTitle}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPiecePreview({
+                        ranked: item,
+                        portfolioItemId: selectedPortfolioItemId,
+                      })
+                    }
+                    className="inline-flex text-[11px] font-semibold text-accent transition hover:text-foreground"
+                  >
+                    Review this look
+                  </button>
                   <p className="text-xs text-muted">{item.rating.toFixed(1)} rating</p>
                   <div className="flex flex-wrap gap-2">
                     {item.labels.map((label) => (
@@ -157,10 +198,54 @@ export function MatchResultsPage() {
                       </span>
                     ))}
                   </div>
+                  {item.matchedPieces.length > 1 ? (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      {item.matchedPieces.map((piece) => {
+                        const isActive = piece.id === selectedPortfolioItemId
+                        return (
+                          <button
+                            key={piece.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedPieceByProId((current) => ({
+                                ...current,
+                                [item.id]: piece.id,
+                              }))
+                            }
+                            className={cn(
+                              'relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border transition',
+                              isActive
+                                ? 'border-primary ring-2 ring-primary/35'
+                                : 'border-border',
+                            )}
+                            aria-label={`Preview ${piece.serviceTitle}`}
+                          >
+                            <img
+                              src={piece.imageUrl}
+                              alt={piece.serviceTitle}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setActiveRequestTarget(item)}
+                      onClick={() => {
+                        const files = readMatchUploadFilesFromSession()
+                        clearMatchUploadSession()
+                        setRequestUploadPrefill(files)
+                        setActiveRequestTarget({
+                          ...item,
+                          portfolioItemId: selectedPortfolioItemId,
+                          portfolioImageUrl,
+                          serviceTitle: selectedServiceTitle,
+                          scoreLabel: selectedScoreLabel,
+                        })
+                      }}
                       className="tf-button-primary col-span-1 w-full px-2 py-2 text-xs"
                     >
                       Request
@@ -181,7 +266,8 @@ export function MatchResultsPage() {
                 </div>
               </div>
             </li>
-          ))}
+            )
+          })}
         </ol>
       ) : null}
 
@@ -213,19 +299,49 @@ export function MatchResultsPage() {
         </Link>
       ) : null}
 
+      {piecePreview ? (
+        <MatchResultPiecePreview
+          ranked={piecePreview.ranked}
+          portfolioItemId={piecePreview.portfolioItemId}
+          onClose={() => setPiecePreview(null)}
+          onRequest={() => {
+            const files = readMatchUploadFilesFromSession()
+            clearMatchUploadSession()
+            setRequestUploadPrefill(files)
+            const r = piecePreview.ranked
+            const pid = piecePreview.portfolioItemId
+            const selectedPiece =
+              r.matchedPieces.find((p) => p.id === pid) ?? r.matchedPieces[0]
+            setActiveRequestTarget({
+              ...r,
+              portfolioItemId: selectedPiece.id,
+              portfolioImageUrl: selectedPiece.imageUrl,
+              serviceTitle: selectedPiece.serviceTitle,
+              scoreLabel: selectedPiece.scoreLabel,
+            })
+            setPiecePreview(null)
+          }}
+        />
+      ) : null}
+
       {activeRequestTarget ? (
         <RequestModal
-          onClose={() => setActiveRequestTarget(null)}
+          key={activeRequestTarget.portfolioItemId}
+          onClose={() => {
+            setActiveRequestTarget(null)
+            setRequestUploadPrefill({ inspiration: null, current: null })
+          }}
           portfolioItemId={activeRequestTarget.portfolioItemId}
           portfolioImageUrl={activeRequestTarget.portfolioImageUrl}
           serviceTitle={activeRequestTarget.serviceTitle}
           proName={activeRequestTarget.name}
           phoneNumber={activeRequestTarget.phoneNumber}
-          initialMessage={
-            request?.notes.trim()
-              ? `${DEFAULT_REQUEST_MESSAGE} ${request.notes.trim()}`
-              : DEFAULT_REQUEST_MESSAGE
-          }
+          proEmail={activeRequestTarget.proEmail}
+          initialMessage={buildMatchRequestPrefillMessage(request)}
+          initialInspirationName={request?.imageName ?? ''}
+          initialCurrentPhotoName={request?.currentPhotoName ?? ''}
+          initialInspirationFile={requestUploadPrefill.inspiration}
+          initialCurrentPhotoFile={requestUploadPrefill.current}
           onSubmit={addRequestSubmission}
         />
       ) : null}
@@ -233,52 +349,63 @@ export function MatchResultsPage() {
   )
 }
 
-function rankProfessionals(request?: MatchRequestDraft): RankedProfessional[] {
+function rankProfessionals(
+  request?: MatchRequestDraft,
+): MatchResultsRankedProfessional[] {
   const query = request?.location.trim().toLowerCase() ?? ''
+  const requestedTags = (request?.tags ?? []).map(normalizeToken)
 
   const scored = professionalsSeed
     .map((pro) => {
-      const portfolioTags = new Set(pro.portfolioItems.flatMap((item) => item.tags))
-      const tagMatches = (request?.tags ?? []).filter((tag) => portfolioTags.has(tag))
-      const categoryMatch = Boolean(request?.category) && request?.category === pro.category
       const locationMatch =
         query.length > 0 && pro.city.toLowerCase().includes(query)
+      const rankedItems = pro.portfolioItems
+        .map((item) => {
+          const itemTagSet = new Set(item.tags.map(normalizeToken))
+          const tagMatchCount = requestedTags.filter((tag) => itemTagSet.has(tag)).length
+          const categoryMatch =
+            Boolean(request?.category) && request?.category === item.category
 
-      const categoryScore = categoryMatch ? 16 : 0
-      const locationScore = locationMatch ? 12 : 0
-      const tagScore = Math.min(tagMatches.length * 5, 15)
-      const imageBonus = request?.imageName ? 3 : 0
-      const notesBonus = request?.notes.trim() ? 2 : 0
+          const categoryScore = categoryMatch ? 18 : 0
+          const locationScore = locationMatch ? 12 : 0
+          const tagScore = Math.min(tagMatchCount * 6, 18)
+          const imageBonus = request?.imageName ? 3 : 0
+          const notesBonus = request?.notes.trim() ? 2 : 0
+          const proQualityScore = (pro.rating - 4) * 7
 
-      const score = Math.min(
-        99,
-        Math.round(
-          62 +
-            categoryScore +
-            locationScore +
-            tagScore +
-            imageBonus +
-            notesBonus +
-            (pro.rating - 4) * 7,
-        ),
-      )
+          const score = Math.min(
+            99,
+            Math.round(
+              58 +
+                categoryScore +
+                locationScore +
+                tagScore +
+                imageBonus +
+                notesBonus +
+                proQualityScore,
+            ),
+          )
+
+          return {
+            item,
+            score,
+            categoryMatch,
+            tagMatchCount,
+          }
+        })
+        .sort((a, b) => b.score - a.score)
+
+      const bestItemResult = rankedItems[0]
+      const bestItem = bestItemResult?.item ?? pro.portfolioItems[0]
+      const bestScore = bestItemResult?.score ?? Math.round(58 + (pro.rating - 4) * 7)
 
       const labels: string[] = []
-      if (categoryMatch) labels.push('Category match')
+      if (bestItemResult?.categoryMatch) labels.push('Category match')
       if (locationMatch) labels.push('Near your location')
-      if (tagMatches.length > 0) labels.push(`${tagMatches.length} tag match`)
-      if (!labels.length) labels.push('Top rated')
-
-      const portfolioImageUrl =
-        pro.portfolioItems[0]?.afterImageUrl ?? pro.portfolioItems[0]?.beforeImageUrl ?? ''
-      const portfolioItemId = pro.portfolioItems[0]?.id ?? `fallback-${pro.id}`
-      const serviceTitle = pro.portfolioItems[0]?.serviceTitle ?? `${pro.title} style`
-      const phoneNumberById: Record<string, string> = {
-        pro_001: '+15125550101',
-        pro_002: '+17135550202',
-        pro_003: '+19725550303',
-        pro_004: '+17135550404',
+      if ((bestItemResult?.tagMatchCount ?? 0) > 0) {
+        labels.push(`${bestItemResult?.tagMatchCount} tag match`)
       }
+      if (!labels.length) labels.push('Top rated')
 
       return {
         id: pro.id,
@@ -286,17 +413,28 @@ function rankProfessionals(request?: MatchRequestDraft): RankedProfessional[] {
         title: pro.title,
         city: pro.city,
         rating: pro.rating,
-        portfolioImageUrl,
-        portfolioItemId,
-        serviceTitle,
-        phoneNumber: phoneNumberById[pro.id] ?? '+17135551234',
-        score,
-        scoreLabel: `${score}% fit`,
+        portfolioImageUrl: bestItem?.afterImageUrl ?? bestItem?.beforeImageUrl ?? '',
+        portfolioItemId: bestItem?.id ?? `fallback-${pro.id}`,
+        serviceTitle: bestItem?.serviceTitle ?? `${pro.title} style`,
+        phoneNumber: pro.bookingPhone ?? '+17135551234',
+        proEmail: pro.bookingEmail,
+        score: bestScore,
+        scoreLabel: `${bestScore}% fit`,
         labels: labels.slice(0, 3),
+        matchedPieces: rankedItems.slice(0, 3).map(({ item, score }) => ({
+          id: item.id,
+          imageUrl: item.afterImageUrl ?? item.beforeImageUrl,
+          serviceTitle: item.serviceTitle,
+          scoreLabel: `${score}% fit`,
+        })),
       }
     })
     .sort((a, b) => b.score - a.score)
 
   const targetCount = Math.min(6, Math.max(3, scored.length))
   return scored.slice(0, targetCount)
+}
+
+function normalizeToken(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
