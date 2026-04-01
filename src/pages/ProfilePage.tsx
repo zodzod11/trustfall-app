@@ -1,24 +1,51 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
+import { createClient } from '../lib/client'
 import { usersSeed } from '../data/seed'
 import { useSaved } from '../hooks/useSaved'
+import { cn } from '../utils/cn'
 
 export function ProfilePage() {
+  const navigate = useNavigate()
   const user = usersSeed[0]
   const { savedPortfolioItemIds, savedProfessionalIds, requestSubmissions } = useSaved()
   const recentRequests = requestSubmissions.slice(0, 4)
 
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
+
+  async function handleSignOut() {
+    setMenuOpen(false)
+    const { error } = await createClient().auth.signOut()
+    if (error) {
+      console.error(error.message)
+      return
+    }
+    navigate('/sign-in', { replace: true })
+  }
+
   return (
     <div className="space-y-10">
-      <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
-        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+      <header className="sticky top-0 z-30 -mx-4 overflow-visible border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-1">
           <Link
             to="/explore"
             aria-label="Trustfall home"
-            className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+            className="group inline-flex min-h-10 min-w-0 max-w-[min(120px,28vw)] items-center justify-start rounded-lg px-0.5 transition hover:bg-surface-elevated/80"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
-              TF
-            </span>
+            <TrustfallLogo size="header" className="max-h-8" />
           </Link>
           <div className="text-center">
             <h1 className="text-center text-[2rem] font-semibold tracking-tight text-primary">
@@ -28,7 +55,55 @@ export function ProfilePage() {
               Account
             </p>
           </div>
-          <span aria-hidden className="h-10 w-10" />
+          <div ref={menuRef} className="relative flex min-h-10 min-w-[44px] items-center justify-end">
+            <button
+              type="button"
+              className={cn(
+                'inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition',
+                'hover:bg-surface-elevated/80 hover:text-foreground',
+                menuOpen && 'bg-surface-elevated/80 text-foreground',
+              )}
+              aria-label="Account menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="true"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-6 w-6"
+                aria-hidden
+              >
+                <circle cx="12" cy="6" r="1.75" />
+                <circle cx="12" cy="12" r="1.75" />
+                <circle cx="12" cy="18" r="1.75" />
+              </svg>
+            </button>
+            {menuOpen ? (
+              <div
+                className="absolute right-0 top-full z-[100] mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg"
+                role="menu"
+              >
+                <Link
+                  to="/settings"
+                  role="menuitem"
+                  className="block px-4 py-2.5 text-sm font-medium text-foreground hover:bg-surface-elevated/80"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Settings
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full px-4 py-2.5 text-left text-sm font-medium text-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => void handleSignOut()}
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 

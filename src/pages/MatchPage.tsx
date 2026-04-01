@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { professionalsSeed, usersSeed } from '../data/seed'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
+import { usersSeed } from '../data/seed'
+import { useExplorePortfolio } from '../hooks/useExplorePortfolio'
+import { useMatchSubmission } from '../hooks/useMatchSubmission'
 import { useSaved } from '../hooks/useSaved'
 import type { MatchRequestDraft } from '../types'
 import { cn } from '../utils/cn'
@@ -106,6 +109,8 @@ export function MatchPage() {
   const navigate = useNavigate()
   const activeUser = usersSeed[0]
   const { savedPortfolioItemIds } = useSaved()
+  const { items: exploreFeed } = useExplorePortfolio()
+  const { submit: submitMatch, state: matchSubmitState } = useMatchSubmission()
   const [step, setStep] = useState(0)
   const [isSavedLooksOpen, setIsSavedLooksOpen] = useState(false)
   const [selectedSavedLookId, setSelectedSavedLookId] = useState('')
@@ -116,6 +121,7 @@ export function MatchPage() {
     tags: [],
     category: '',
     location: '',
+    savedLookPortfolioItemId: undefined,
   })
   const inspirationFileRef = useRef<File | null>(null)
   const currentPhotoFileRef = useRef<File | null>(null)
@@ -157,26 +163,25 @@ export function MatchPage() {
     [request.category, activeUser],
   )
   const savedLooks = useMemo(() => {
-    const portfolioFeed = professionalsSeed.flatMap((pro) =>
-      pro.portfolioItems.map((item) => ({
-        id: item.id,
-        serviceTitle: item.serviceTitle,
-        category: item.category,
-        tags: item.tags,
-        imageUrl: item.afterImageUrl,
-        professionalName: pro.displayName,
-      })),
-    )
+    const portfolioFeed = exploreFeed.map((item) => ({
+      id: item.id,
+      serviceTitle: item.serviceTitle,
+      category: item.category,
+      tags: item.tags,
+      imageUrl: item.afterImageUrl,
+      professionalName: item.professionalName,
+    }))
 
     return savedPortfolioItemIds
       .map((id) => portfolioFeed.find((item) => item.id === id))
       .filter((item): item is (typeof portfolioFeed)[number] => Boolean(item))
-  }, [savedPortfolioItemIds])
+  }, [savedPortfolioItemIds, exploreFeed])
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null
     inspirationFileRef.current = file
     setSelectedSavedLookId('')
+    setRequest((current) => ({ ...current, savedLookPortfolioItemId: undefined }))
 
     if (inspirationBlobUrlRef.current) {
       URL.revokeObjectURL(inspirationBlobUrlRef.current)
@@ -239,8 +244,16 @@ export function MatchPage() {
       inspirationFileRef.current,
       currentPhotoFileRef.current,
     )
+    const result = await submitMatch(request, {
+      inspiration: inspirationFileRef.current,
+      current: currentPhotoFileRef.current,
+    })
+    if (!result.ok) {
+      window.alert(result.error)
+      return
+    }
     navigate('/match/results', {
-      state: { request },
+      state: { request, matchRequestId: result.matchRequestId },
     })
   }
 
@@ -258,16 +271,14 @@ export function MatchPage() {
   return (
     <div className="space-y-7 pb-1">
       <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
-        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+        <div className="grid grid-cols-[auto_1fr_44px] items-center gap-1">
           {step === 0 ? (
             <Link
               to="/explore"
               aria-label="Trustfall home"
-              className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+              className="group inline-flex min-h-10 min-w-0 max-w-[min(120px,28vw)] items-center justify-start rounded-lg px-0.5 transition hover:bg-surface-elevated/80"
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
-                TF
-              </span>
+              <TrustfallLogo size="header" className="max-h-8" />
             </Link>
           ) : (
             <button
@@ -481,6 +492,7 @@ export function MatchPage() {
                           setSelectedSavedLookId(look.id)
                           setRequest((current) => ({
                             ...current,
+                            savedLookPortfolioItemId: look.id,
                             imageName: `Saved look: ${look.serviceTitle}`,
                             notes: buildSavedLookDescription(look),
                           }))
@@ -675,14 +687,15 @@ export function MatchPage() {
           ) : (
             <button
               type="button"
-              onClick={submitRequest}
-              disabled={!canSubmit}
+              onClick={() => void submitRequest()}
+              disabled={!canSubmit || matchSubmitState.phase === 'submitting'}
               className={cn(
                 'tf-button-primary w-full',
-                !canSubmit && 'pointer-events-none opacity-50',
+                (!canSubmit || matchSubmitState.phase === 'submitting') &&
+                  'pointer-events-none opacity-50',
               )}
             >
-              Find Matches
+              {matchSubmitState.phase === 'submitting' ? 'Saving…' : 'Find Matches'}
             </button>
           )}
         </div>

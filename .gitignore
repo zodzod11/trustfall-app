@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.expo/
 
 # Editor directories and files
 .vscode/*
@@ -24,3 +26,6 @@ dist-ssr
 *.sw?
 sendgrid.env
 notifications.local
+
+# Supabase CLI local cache (per machine)
+supabase/.temp/

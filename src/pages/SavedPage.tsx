@@ -1,29 +1,31 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { PortfolioCard, type PortfolioFeedItem } from '../components/explore/PortfolioCard'
-import { professionalsSeed } from '../data/seed'
+import { useExplorePortfolio } from '../hooks/useExplorePortfolio'
 import { useSaved } from '../hooks/useSaved'
+import type { Professional } from '../types'
+import { professionalFromFeedItems } from '../utils/portfolioItemFromFeed'
 
 export function SavedPage() {
   const { savedPortfolioItemIds, savedProfessionalIds } = useSaved()
+  const { items: portfolioFeed, loading: catalogLoading } = useExplorePortfolio()
 
-  const portfolioFeed: PortfolioFeedItem[] = professionalsSeed.flatMap((pro) =>
-    pro.portfolioItems.map((item) => ({
-      ...item,
-      professionalName: pro.displayName,
-      professionalTitle: pro.title,
-      location: pro.city,
-      professionalPhone: pro.bookingPhone,
-      professionalEmail: pro.bookingEmail,
-    })),
+  const savedPortfolioItems = useMemo(
+    () =>
+      savedPortfolioItemIds
+        .map((itemId) => portfolioFeed.find((item) => item.id === itemId))
+        .filter((item): item is PortfolioFeedItem => Boolean(item)),
+    [savedPortfolioItemIds, portfolioFeed],
   )
 
-  const savedPortfolioItems = savedPortfolioItemIds
-    .map((itemId) => portfolioFeed.find((item) => item.id === itemId))
-    .filter((item): item is PortfolioFeedItem => Boolean(item))
-
-  const savedProfessionals = savedProfessionalIds
-    .map((proId) => professionalsSeed.find((pro) => pro.id === proId))
-    .filter((pro): pro is (typeof professionalsSeed)[number] => Boolean(pro))
+  const savedProfessionals = useMemo(
+    () =>
+      savedProfessionalIds
+        .map((proId) => professionalFromFeedItems(proId, portfolioFeed))
+        .filter((pro): pro is Professional => Boolean(pro)),
+    [savedProfessionalIds, portfolioFeed],
+  )
 
   const isEmpty =
     savedPortfolioItems.length === 0 && savedProfessionals.length === 0
@@ -31,15 +33,13 @@ export function SavedPage() {
   return (
     <div className="space-y-5">
       <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
-        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+        <div className="grid grid-cols-[auto_1fr_44px] items-center gap-1">
           <Link
             to="/explore"
             aria-label="Trustfall home"
-            className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+            className="group inline-flex min-h-10 min-w-0 max-w-[min(120px,28vw)] items-center justify-start rounded-lg px-0.5 transition hover:bg-surface-elevated/80"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
-              TF
-            </span>
+            <TrustfallLogo size="header" className="max-h-8" />
           </Link>
           <div className="text-center">
             <h1 className="text-center text-[2rem] font-semibold tracking-tight text-primary">
@@ -57,6 +57,7 @@ export function SavedPage() {
         <p className="text-xs font-medium text-muted">
           {savedPortfolioItems.length + savedProfessionals.length} saved item
           {savedPortfolioItems.length + savedProfessionals.length === 1 ? '' : 's'}
+          {catalogLoading ? ' · loading catalog…' : ''}
         </p>
       ) : null}
 

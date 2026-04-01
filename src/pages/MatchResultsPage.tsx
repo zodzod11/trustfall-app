@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { RequestModal } from '../components/explore/RequestModal'
 import { MatchResultPiecePreview } from '../components/match/MatchResultPiecePreview'
 import { PageHeader } from '../components/layout/PageHeader'
 import { professionalsSeed } from '../data/seed'
+import { useMatchRunResults } from '../hooks/useMatchRunResults'
 import { useSaved } from '../hooks/useSaved'
 import type { MatchRequestDraft, MatchResultsRankedProfessional } from '../types'
 import { cn } from '../utils/cn'
@@ -15,13 +17,21 @@ import {
 
 type MatchResultsState = {
   request?: MatchRequestDraft
+  matchRequestId?: string
 }
 
 export function MatchResultsPage() {
   const location = useLocation()
   const state = (location.state as MatchResultsState | null) ?? null
   const request = state?.request
-  const [isPending, setIsPending] = useState(true)
+  const matchRequestId = state?.matchRequestId
+  const {
+    ranked: serverRanked,
+    status: matchRunStatus,
+    isPending: hookPending,
+    errorMessage: matchRunError,
+  } = useMatchRunResults(matchRequestId)
+  const [demoPending, setDemoPending] = useState(() => !matchRequestId)
   const [activeRequestTarget, setActiveRequestTarget] =
     useState<MatchResultsRankedProfessional | null>(null)
   const [piecePreview, setPiecePreview] = useState<{
@@ -37,20 +47,35 @@ export function MatchResultsPage() {
   >({})
   const { requestSubmissions, addRequestSubmission } = useSaved()
 
-  const ranked: MatchResultsRankedProfessional[] = useMemo(
-    () => rankProfessionals(request),
-    [request],
-  )
-
   useEffect(() => {
+    if (matchRequestId) return
     const timer = window.setTimeout(() => {
-      setIsPending(false)
+      setDemoPending(false)
     }, 1400)
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [matchRequestId])
+
+  const ranked: MatchResultsRankedProfessional[] = useMemo(() => {
+    if (matchRequestId) {
+      if (matchRunStatus === 'ready') return serverRanked
+      return []
+    }
+    return rankProfessionals(request)
+  }, [matchRequestId, matchRunStatus, serverRanked, request])
+
+  const isPending = matchRequestId ? hookPending : demoPending
 
   return (
     <div className="space-y-8">
+      <div className="-mb-2 flex justify-center sm:justify-start">
+        <Link
+          to="/explore"
+          aria-label="Trustfall home"
+          className="inline-flex rounded-lg px-1 py-0.5 transition hover:bg-surface-elevated/80"
+        >
+          <TrustfallLogo size="header" className="max-h-8" />
+        </Link>
+      </div>
       <PageHeader
         eyebrow="Matches"
         title={isPending ? 'Finding your matches...' : 'Results'}
@@ -62,6 +87,12 @@ export function MatchResultsPage() {
               : 'No submitted request found. Showing sample ranked results.'
         }
       />
+
+      {matchRunError && !isPending ? (
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {matchRunError}
+        </p>
+      ) : null}
 
       {isPending ? (
         <>

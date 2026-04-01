@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link } from 'react-router-dom'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { FilterBar } from '../components/explore/FilterBar'
 import { PortfolioCard, type PortfolioFeedItem } from '../components/explore/PortfolioCard'
-import { professionalsSeed } from '../data/seed'
+import { useExplorePersonalization } from '../hooks/useExplorePersonalization'
+import { useExplorePortfolio } from '../hooks/useExplorePortfolio'
+import { applyExploreFilters, orderExploreByPersonalization } from '../lib/explore'
+import { createClient } from '../lib/client'
+import { createOnboardingApi } from '../services/onboarding'
 import type { ServiceCategory } from '../types'
 import { cn } from '../utils/cn'
 
@@ -35,20 +40,10 @@ export function ExplorePage() {
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [selectedTag, setSelectedTag] = useState('all')
 
-  const portfolioFeed = useMemo(
-    () =>
-      professionalsSeed.flatMap((professional) =>
-        professional.portfolioItems.map((item) => ({
-          ...item,
-          professionalName: professional.displayName,
-          professionalTitle: professional.title,
-          location: professional.city,
-          professionalPhone: professional.bookingPhone,
-          professionalEmail: professional.bookingEmail,
-        })),
-      ),
-    [],
-  )
+  const { items: portfolioFeed, loading: catalogLoading, error: catalogError } =
+    useExplorePortfolio()
+
+  const exploreOnboardingApi = useMemo(() => createOnboardingApi(createClient()), [])
 
   const categories = useMemo(
     () =>
@@ -68,21 +63,43 @@ export function ExplorePage() {
     [portfolioFeed],
   )
 
+  const explorePersonalization = useExplorePersonalization({
+    portfolioFeed,
+    catalogCategories: categories,
+    catalogLocations: locations,
+    catalogTags: tags,
+    api: exploreOnboardingApi,
+  })
+
+  const exploreDefaultsAppliedRef = useRef(false)
+  useEffect(() => {
+    if (catalogLoading || explorePersonalization.status !== 'ready' || portfolioFeed.length === 0) {
+      return
+    }
+    if (exploreDefaultsAppliedRef.current) return
+    exploreDefaultsAppliedRef.current = true
+    setSelectedCategory(explorePersonalization.suggestedFilters.category)
+    setSelectedLocation(explorePersonalization.suggestedFilters.location)
+    setSelectedTag(explorePersonalization.suggestedFilters.tag)
+  }, [
+    catalogLoading,
+    explorePersonalization.status,
+    explorePersonalization.suggestedFilters,
+    portfolioFeed.length,
+  ])
+
+  const exploreFilters = useMemo(
+    () => ({
+      category: selectedCategory,
+      location: selectedLocation,
+      tag: selectedTag,
+    }),
+    [selectedCategory, selectedLocation, selectedTag],
+  )
+
   const filteredItems = useMemo(
-    () =>
-      portfolioFeed.filter((item) => {
-        if (selectedCategory !== 'all' && item.category !== selectedCategory) {
-          return false
-        }
-        if (selectedLocation !== 'all' && item.location !== selectedLocation) {
-          return false
-        }
-        if (selectedTag !== 'all' && !item.tags.includes(selectedTag)) {
-          return false
-        }
-        return true
-      }),
-    [portfolioFeed, selectedCategory, selectedLocation, selectedTag],
+    () => applyExploreFilters(portfolioFeed, exploreFilters),
+    [portfolioFeed, exploreFilters],
   )
 
   useEffect(() => {
@@ -93,10 +110,15 @@ export function ExplorePage() {
     return () => window.clearTimeout(timer)
   }, [isSearchOpen])
 
+  const orderedForDisplay = useMemo(
+    () => orderExploreByPersonalization(filteredItems, explorePersonalization.prefs),
+    [filteredItems, explorePersonalization.prefs],
+  )
+
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    if (!query) return filteredItems
-    return filteredItems.filter((item) => {
+    if (!query) return orderedForDisplay
+    return orderedForDisplay.filter((item) => {
       const haystack = [
         item.serviceTitle,
         item.professionalName,
@@ -109,7 +131,9 @@ export function ExplorePage() {
         .toLowerCase()
       return haystack.includes(query)
     })
-  }, [filteredItems, searchQuery])
+  }, [orderedForDisplay, searchQuery])
+
+  const visibleCount = searchQuery.trim() ? searchResults.length : orderedForDisplay.length
 
   function saveRecentSearch(term: string) {
     const normalized = term.trim()
@@ -140,15 +164,13 @@ export function ExplorePage() {
   return (
     <div className="space-y-5">
       <header className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-background/80 px-4 pb-4 pt-1 backdrop-blur-xl sm:-mx-5 sm:px-5">
-        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+        <div className="grid grid-cols-[auto_1fr_44px] items-center gap-1">
           <Link
             to="/explore"
             aria-label="Trustfall home"
-            className="group inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-elevated"
+            className="group inline-flex min-h-10 min-w-0 max-w-[min(120px,28vw)] items-center justify-start rounded-lg px-0.5 transition hover:bg-surface-elevated/80"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-[11px] font-bold tracking-[0.14em] text-primary shadow-[0_8px_20px_-10px_rgba(47,99,230,0.8)]">
-              TF
-            </span>
+            <TrustfallLogo size="header" className="max-h-8" />
           </Link>
           <h1 className="text-center text-[2rem] font-semibold tracking-tight text-primary">
             Explore
@@ -179,7 +201,9 @@ export function ExplorePage() {
 
       <div className="flex items-center justify-between gap-3 px-0.5">
         <p className="text-xs font-medium text-muted/90">
-          {filteredItems.length} result{filteredItems.length === 1 ? '' : 's'}
+          {catalogLoading
+            ? 'Loading…'
+            : `${visibleCount} result${visibleCount === 1 ? '' : 's'}`}
         </p>
         <div className="inline-flex rounded-xl border border-border bg-surface p-1">
           <button
@@ -209,6 +233,16 @@ export function ExplorePage() {
         </div>
       </div>
 
+      {catalogError ? (
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {catalogError}
+        </p>
+      ) : null}
+
+      {explorePersonalization.hint ? (
+        <p className="px-0.5 text-xs leading-relaxed text-muted/90">{explorePersonalization.hint}</p>
+      ) : null}
+
       <FilterBar
         categories={categories}
         locations={locations}
@@ -229,12 +263,12 @@ export function ExplorePage() {
             : 'grid-cols-2 gap-x-4 gap-y-8',
         )}
       >
-        {filteredItems.map((item) => (
+        {orderedForDisplay.map((item) => (
           <PortfolioCard key={item.id} item={item} view={viewMode} />
         ))}
       </div>
 
-      {filteredItems.length === 0 ? (
+      {!catalogLoading && orderedForDisplay.length === 0 ? (
         <EmptyState
           category={selectedCategory}
           location={selectedLocation}

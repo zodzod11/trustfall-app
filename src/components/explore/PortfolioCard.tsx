@@ -7,6 +7,11 @@ export type PortfolioFeedItem = PortfolioItem & {
   location: string
   professionalPhone?: string
   professionalEmail?: string
+  /** Populated when loaded from Supabase (Saved / detail use optional fields). */
+  professionalRating?: number
+  professionalReviewCount?: number
+  professionalYearsExperience?: number
+  professionalAbout?: string
 }
 
 type PortfolioCardProps = {

@@ -89,7 +89,17 @@ export type MatchResult = {
 export type MatchRequestDraft = {
   imageName: string
   currentPhotoName?: string
+  /** Free-form vision copy; maps to `vision_notes` / legacy combined notes when persisting. */
   notes: string
+  /** Maps to `desired_style_text` when persisting to Supabase. */
+  desiredStyleText?: string
+  /** Maps to `current_state_text`. */
+  currentStateText?: string
+  /** Optional budget range — maps to `budget_min` / `budget_max`. */
+  budgetMin?: string
+  budgetMax?: string
+  /** When set from a saved Explore look, maps to `saved_look_portfolio_item_id`. */
+  savedLookPortfolioItemId?: string
   tags: string[]
   category: ServiceCategory | 'brows' | 'tattoo' | ''
   location: string
@@ -117,6 +127,8 @@ export type MatchResultsRankedProfessional = {
   scoreLabel: string
   labels: string[]
   matchedPieces: MatchResultsMatchedPiece[]
+  /** Numeric score when sourced from Supabase match_result_rows */
+  score?: number
 }
 
 export type RequestSubmission = {

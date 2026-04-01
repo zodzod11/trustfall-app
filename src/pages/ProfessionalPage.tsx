@@ -1,20 +1,86 @@
 import { Link, useParams } from 'react-router-dom'
-import { PortfolioCard, type PortfolioFeedItem } from '../components/explore/PortfolioCard'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
+import { PortfolioCard } from '../components/explore/PortfolioCard'
 import { PageHeader } from '../components/layout/PageHeader'
-import { professionalsSeed } from '../data/seed'
+import { useProfessionalPortfolio } from '../hooks/useProfessionalPortfolio'
 
 export function ProfessionalPage() {
   const { id } = useParams()
-  const professional = professionalsSeed.find((pro) => pro.id === id)
+  const { items, loading, error } = useProfessionalPortfolio(id)
 
-  if (!professional) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <Link
           to="/explore"
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-accent"
+          className="inline-flex items-center gap-3 text-sm font-medium text-muted transition hover:text-accent"
         >
-          <span aria-hidden>←</span> Back to Explore
+          <TrustfallLogo size="header" className="h-7 max-h-7 max-w-[100px] opacity-90" />
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden>←</span> Back to Explore
+          </span>
+        </Link>
+        <p className="text-sm text-muted">Loading…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to="/explore"
+          className="inline-flex items-center gap-3 text-sm font-medium text-muted transition hover:text-accent"
+        >
+          <TrustfallLogo size="header" className="h-7 max-h-7 max-w-[100px] opacity-90" />
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden>←</span> Back to Explore
+          </span>
+        </Link>
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      </div>
+    )
+  }
+
+  const professional = id
+    ? {
+        id,
+        displayName: items[0]?.professionalName ?? '',
+        title: items[0]?.professionalTitle ?? '',
+        category: items[0]?.category ?? 'hair',
+        city: items[0]?.location ?? '',
+        rating: items[0]?.professionalRating ?? 0,
+        reviewCount: items[0]?.professionalReviewCount ?? 0,
+        yearsExperience: items[0]?.professionalYearsExperience ?? 0,
+        about: items[0]?.professionalAbout ?? '',
+        bookingPhone: items[0]?.professionalPhone,
+        bookingEmail: items[0]?.professionalEmail,
+        portfolioItems: items.map((item) => ({
+          id: item.id,
+          professionalId: item.professionalId,
+          beforeImageUrl: item.beforeImageUrl,
+          afterImageUrl: item.afterImageUrl,
+          price: item.price,
+          serviceTitle: item.serviceTitle,
+          tags: item.tags,
+          category: item.category,
+        })),
+      }
+    : null
+
+  if (!professional || items.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to="/explore"
+          className="inline-flex items-center gap-3 text-sm font-medium text-muted transition hover:text-accent"
+        >
+          <TrustfallLogo size="header" className="h-7 max-h-7 max-w-[100px] opacity-90" />
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden>←</span> Back to Explore
+          </span>
         </Link>
         <div className="tf-card space-y-3 px-5 py-7 text-center">
           <p className="text-base font-semibold text-secondary">Professional not found.</p>
@@ -29,22 +95,16 @@ export function ProfessionalPage() {
     )
   }
 
-  const portfolioItems: PortfolioFeedItem[] = professional.portfolioItems.map((item) => ({
-    ...item,
-    professionalName: professional.displayName,
-    professionalTitle: professional.title,
-    location: professional.city,
-    professionalPhone: professional.bookingPhone,
-    professionalEmail: professional.bookingEmail,
-  }))
-
   return (
     <div className="space-y-7">
       <Link
         to="/explore"
-        className="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-accent"
+        className="inline-flex items-center gap-3 text-sm font-medium text-muted transition hover:text-accent"
       >
-        <span aria-hidden>←</span> Back to Explore
+        <TrustfallLogo size="header" className="h-7 max-h-7 max-w-[100px] opacity-90" />
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden>←</span> Back to Explore
+        </span>
       </Link>
 
       <PageHeader
@@ -82,7 +142,7 @@ export function ProfessionalPage() {
           All Work
         </h2>
         <div className="grid grid-cols-1 gap-4">
-          {portfolioItems.map((item) => (
+          {items.map((item) => (
             <PortfolioCard key={item.id} item={item} />
           ))}
         </div>

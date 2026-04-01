@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { BeforeAfterDisplay } from '../components/explore/BeforeAfterDisplay'
 import {
   PortfolioCard,
@@ -10,7 +11,7 @@ import {
   RequestModal,
 } from '../components/explore/RequestModal'
 import { PageHeader } from '../components/layout/PageHeader'
-import { professionalsSeed } from '../data/seed'
+import { useExplorePortfolioDetail } from '../hooks/useExplorePortfolioDetail'
 import { useSaved } from '../hooks/useSaved'
 
 type PortfolioDetailItem = PortfolioFeedItem & {
@@ -33,43 +34,42 @@ export function ExploreDetailPage() {
     togglePortfolioItem,
     toggleProfessional,
   } = useSaved()
-  const portfolioFeed: PortfolioDetailItem[] = professionalsSeed.flatMap((pro) =>
-    pro.portfolioItems.map((item) => ({
-      ...item,
-      professionalName: pro.displayName,
-      professionalTitle: pro.title,
-      location: pro.city,
-      professionalRating: pro.rating,
-      professionalReviewCount: pro.reviewCount,
-        professionalYearsExperience: pro.yearsExperience,
-        professionalAbout: pro.about,
-        professionalId: pro.id,
-        professionalPhone: pro.bookingPhone,
-        professionalEmail: pro.bookingEmail,
-      })),
-  )
+  const { item: rawItem, moreFromSamePro, loading, error } = useExplorePortfolioDetail(id)
 
-  const selectedItem = portfolioFeed.find((item) => item.id === id)
-  const moreFromSamePro = selectedItem
-    ? portfolioFeed
-        .filter(
-          (item) =>
-            item.professionalId === selectedItem.professionalId &&
-            item.id !== selectedItem.id,
-        )
-        .slice(0, 4)
-    : []
+  const selectedItem = useMemo((): PortfolioDetailItem | null => {
+    if (!rawItem) return null
+    return {
+      ...rawItem,
+      professionalRating: rawItem.professionalRating ?? 0,
+      professionalReviewCount: rawItem.professionalReviewCount ?? 0,
+      professionalYearsExperience: rawItem.professionalYearsExperience ?? 0,
+      professionalAbout: rawItem.professionalAbout ?? '',
+    }
+  }, [rawItem])
 
   return (
     <div className="space-y-8">
       <Link
         to="/explore"
-        className="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-accent"
+        className="inline-flex items-center gap-3 text-sm font-medium text-muted transition hover:text-accent"
       >
-        <span aria-hidden>←</span> Back to Explore
+        <TrustfallLogo size="header" className="h-7 max-h-7 max-w-[100px] opacity-90" />
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden>←</span> Back to Explore
+        </span>
       </Link>
 
-      {!selectedItem ? (
+      {loading ? (
+        <p className="text-sm text-muted">Loading…</p>
+      ) : null}
+
+      {error ? (
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      {!loading && !error && !selectedItem ? (
         <div className="tf-card space-y-3 px-5 py-6 text-center">
           <p className="text-sm font-medium text-secondary">
             Portfolio item not found.
@@ -79,7 +79,9 @@ export function ExploreDetailPage() {
             Return to Explore
           </Link>
         </div>
-      ) : (
+      ) : null}
+
+      {selectedItem ? (
         <>
           <BeforeAfterDisplay
             beforeImageUrl={selectedItem.beforeImageUrl}
@@ -220,7 +222,7 @@ export function ExploreDetailPage() {
             )}
           </section>
         </>
-      )}
+      ) : null}
 
       {selectedItem && isRequestModalOpen ? (
         <RequestModal

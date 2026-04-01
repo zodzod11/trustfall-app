@@ -1,0 +1,26 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "../src/services/onboarding/**/*.ts",
+    "../src/onboarding/**/*.ts",
+    "../src/lib/auth/**/*.ts",
+    "../src/lib/onboarding/**/*.ts",
+    "../src/hooks/useExplorePersonalization.ts",
+    "../src/lib/explore/personalizationFromOnboarding.ts",
+    "../src/lib/explore/orderExploreByPersonalization.ts",
+    "../src/lib/explore/applyExploreFilters.ts",
+    "../src/lib/explore/types.ts"
+  ]
+}

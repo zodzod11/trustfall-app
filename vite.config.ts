@@ -16,6 +16,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      '/api/match-run': {
+        target: 'http://localhost:8788',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,
