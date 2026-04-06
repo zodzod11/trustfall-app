@@ -1,8 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import { useFocusEffect } from '@react-navigation/native'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -14,10 +16,14 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TrustfallBrandMark, TrustfallScreenHeader } from '@/components/layout/TrustfallScreenHeader'
-import { usersSeed } from '@/data/seed'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
 import { useSaved } from '@/hooks/useSaved'
-import { supabase } from '@/lib/supabase'
+import {
+  type ProfileScreenModel,
+  fetchProfileScreenModel,
+  profileInitials,
+} from '@/lib/profileScreenData'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 function ProfileAccountMenu() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -97,9 +103,31 @@ function ProfileAccountMenu() {
 }
 
 export default function ProfileScreen() {
-  const user = usersSeed[0]
   const { savedPortfolioItemIds, savedProfessionalIds, requestSubmissions } = useSaved()
   const recentRequests = requestSubmissions.slice(0, 4)
+
+  const [me, setMe] = useState<ProfileScreenModel | null | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+
+  const reload = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setMe(null)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      setMe(await fetchProfileScreenModel())
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload()
+    }, [reload]),
+  )
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -111,48 +139,75 @@ export default function ProfileScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.userRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName[0]}
-              {user.lastName[0]}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.name}>
-              {user.firstName} {user.lastName}
-            </Text>
-            <Text style={styles.email}>{user.email}</Text>
-            <Text style={styles.city}>{user.city}</Text>
-          </View>
-        </View>
-
-        <View style={styles.stats}>
-          {[
-            { label: 'Saved looks', value: savedPortfolioItemIds.length },
-            { label: 'Saved pros', value: savedProfessionalIds.length },
-            { label: 'Requests', value: requestSubmissions.length },
-          ].map((s) => (
-            <View key={s.label} style={styles.statCard}>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
+        {loading ? (
+          <ActivityIndicator color={TrustfallColors.primary} style={styles.loader} />
+        ) : !me ? (
+          isSupabaseConfigured ? (
+            <View style={styles.signedOutCard}>
+              <Text style={styles.signedOutTitle}>You’re signed out</Text>
+              <Text style={styles.muted}>
+                Sign in to see your name, email, and preferences from your Trustfall account.
+              </Text>
+              <Pressable
+                onPress={() =>
+                  router.push(`/sign-in?next=${encodeURIComponent('/profile')}`)
+                }
+                style={styles.signedOutBtn}
+              >
+                <Text style={styles.signedOutBtnText}>Sign in</Text>
+              </Pressable>
             </View>
-          ))}
-        </View>
-
-        <Text style={styles.sectionLabel}>Preferences</Text>
-        <View style={styles.prefCard}>
-          <View style={styles.tagRow}>
-            {user.preferredCategories.map((c) => (
-              <View key={c} style={styles.tag}>
-                <Text style={styles.tagText}>{c}</Text>
+          ) : (
+            <Text style={styles.muted}>
+              Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and key to load your profile.
+            </Text>
+          )
+        ) : (
+          <>
+            <View style={styles.userRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{profileInitials(me.displayName)}</Text>
               </View>
-            ))}
-          </View>
-          <Text style={styles.budget}>
-            Budget: ${user.budgetMin} – ${user.budgetMax}
-          </Text>
-        </View>
+              <View style={styles.userTextCol}>
+                <Text style={styles.name}>{me.displayName}</Text>
+                <Text style={styles.email}>{me.email}</Text>
+                {me.phone ? <Text style={styles.metaLine}>{me.phone}</Text> : null}
+                {me.city ? <Text style={styles.metaLine}>{me.city}</Text> : null}
+              </View>
+            </View>
+
+            <View style={styles.stats}>
+              {[
+                { label: 'Saved looks', value: savedPortfolioItemIds.length },
+                { label: 'Saved pros', value: savedProfessionalIds.length },
+                { label: 'Requests', value: requestSubmissions.length },
+              ].map((s) => (
+                <View key={s.label} style={styles.statCard}>
+                  <Text style={styles.statValue}>{s.value}</Text>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Text style={styles.sectionLabel}>Preferences</Text>
+            <View style={styles.prefCard}>
+              <View style={styles.tagRow}>
+                {me.preferredCategories.length > 0 ? (
+                  me.preferredCategories.map((c) => (
+                    <View key={c} style={styles.tag}>
+                      <Text style={styles.tagText}>{c}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.muted}>No categories yet — complete onboarding to personalize Explore.</Text>
+                )}
+              </View>
+              <Text style={styles.budget}>
+                {me.budgetLabel ? `Budget: ${me.budgetLabel}` : 'Budget: not set (add in onboarding or settings later)'}
+              </Text>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>Recent requests</Text>
         {recentRequests.length === 0 ? (
@@ -252,7 +307,27 @@ const styles = StyleSheet.create({
   },
   safe: { flex: 1, backgroundColor: TrustfallColors.background },
   scroll: { padding: TrustfallSpacing.lg, paddingBottom: 100, gap: TrustfallSpacing.lg },
+  loader: { paddingVertical: TrustfallSpacing.xxl },
+  signedOutCard: {
+    padding: TrustfallSpacing.xl,
+    borderRadius: TrustfallRadius.lg,
+    borderWidth: 1,
+    borderColor: TrustfallColors.border,
+    backgroundColor: TrustfallColors.surface,
+    gap: TrustfallSpacing.md,
+  },
+  signedOutTitle: { fontSize: 18, fontWeight: '700', color: TrustfallColors.foreground },
+  signedOutBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: TrustfallSpacing.sm,
+    paddingHorizontal: TrustfallSpacing.lg,
+    borderRadius: TrustfallRadius.md,
+    backgroundColor: TrustfallColors.primary,
+  },
+  signedOutBtnText: { fontSize: 15, fontWeight: '700', color: TrustfallColors.primaryForeground },
   userRow: { flexDirection: 'row', gap: TrustfallSpacing.lg, alignItems: 'center' },
+  userTextCol: { flex: 1, minWidth: 0, gap: 4 },
+  metaLine: { fontSize: 13, color: TrustfallColors.muted },
   avatar: {
     width: 64,
     height: 64,
