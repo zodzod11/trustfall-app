@@ -45,6 +45,7 @@ INSERT INTO public.professionals (
   city,
   rating,
   review_count,
+  request_count,
   years_experience,
   about,
   booking_phone,
@@ -56,13 +57,14 @@ INSERT INTO public.professionals (
     'a1111111-1111-1111-1111-111111111101',
     'andre-cuts',
     'Andre Cuts',
-    'Master Barber',
-    'barber',
+    'Cuts, fades & beard shaping',
+    'hair',
     'Austin',
     4.90,
     214,
+    89,
     11,
-    'Fade specialist known for clean tapers and detailed beard shaping.',
+    'Fade specialist for clean tapers, detailed beard shaping, and precision cuts.',
     '+16177550418',
     'zodzod11@gmail.com',
     true,
@@ -77,9 +79,10 @@ INSERT INTO public.professionals (
     'Houston',
     4.80,
     168,
+    62,
     9,
     'Dimensional color and editorial cuts with low-maintenance grow-out.',
-    NULL,
+    '+17135550182',
     NULL,
     true,
     NULL
@@ -93,25 +96,27 @@ INSERT INTO public.professionals (
     'Dallas',
     4.90,
     192,
+    71,
     8,
     'Structured gel sets and fine-line designs with luxury prep.',
-    NULL,
+    '+12145550147',
     NULL,
     true,
     NULL
   ),
   (
     'a1111111-1111-1111-1111-111111111104',
-    'camille-mua',
-    'Camille MUA',
-    'Makeup Artist',
-    'makeup',
+    'northline-ink',
+    'Northline Ink',
+    'Tattoo Artist',
+    'tattoo',
     'Houston',
     4.95,
     143,
+    54,
     10,
-    'Skin-first makeup for events, bridal sessions, and camera-ready looks.',
-    NULL,
+    'Custom linework, botanicals, and Japanese-inspired pieces with a focus on flow and longevity.',
+    '+17135550194',
     NULL,
     true,
     NULL
@@ -124,6 +129,7 @@ ON CONFLICT (id) DO UPDATE SET
   city = EXCLUDED.city,
   rating = EXCLUDED.rating,
   review_count = EXCLUDED.review_count,
+  request_count = EXCLUDED.request_count,
   years_experience = EXCLUDED.years_experience,
   about = EXCLUDED.about,
   booking_phone = EXCLUDED.booking_phone,
@@ -140,109 +146,139 @@ INSERT INTO public.portfolio_items (
   professional_id,
   service_title,
   category,
+  service_type,
   price,
+  duration_minutes,
   before_image_path,
   after_image_path,
   sort_order,
-  published
+  published,
+  description
 ) VALUES
   (
     'b1111111-1111-1111-1111-111111111101',
     'a1111111-1111-1111-1111-111111111101',
     'Skin Fade + Beard Lineup',
-    'barber',
+    'hair',
+    'Barber cut',
     55.00,
+    60,
     'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=800&q=80',
     0,
-    true
+    true,
+    'Clipper and shear work for a mid drop fade, tight lineup, and beard carved to your jawline with a matte, natural finish.'
   ),
   (
     'b1111111-1111-1111-1111-111111111102',
     'a1111111-1111-1111-1111-111111111101',
     'Classic Taper Cut',
-    'barber',
+    'hair',
+    'Taper cut',
     45.00,
+    45,
     'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Classic taper with weight on top, clean temple fade, and blended nape—finished with shear work for a neat everyday shape.'
   ),
   (
     'b1111111-1111-1111-1111-111111111103',
     'a1111111-1111-1111-1111-111111111102',
     'Balayage + Gloss',
     'hair',
+    'Color service',
     180.00,
-    'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=800&q=80',
+    180,
+    'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
     0,
-    true
+    true,
+    'Hand-painted ribbons of light with a glossing toner for shine and warmth control. Soft grow-out with dimensional depth.'
   ),
   (
     'b1111111-1111-1111-1111-111111111104',
     'a1111111-1111-1111-1111-111111111102',
     'Precision Bob + Blowout',
     'hair',
+    'Cut and blowout',
     95.00,
+    90,
     'https://images.unsplash.com/photo-1523263685509-57c1d050d19b?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1595475038665-8f6c47c65d91?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Precision one-length bob with subtle layering for movement, finished with a round-brush blowout for swing and polish.'
   ),
   (
     'b1111111-1111-1111-1111-111111111105',
     'a1111111-1111-1111-1111-111111111103',
     'Structured Gel Set',
     'nails',
+    'Structured manicure',
     70.00,
+    75,
     'https://images.unsplash.com/photo-1610992015732-2449b76344bc?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=800&q=80',
     0,
-    true
+    true,
+    'Structured gel on almond lengths with apex support for durability, clean architecture, and a high-gloss top coat.'
   ),
   (
     'b1111111-1111-1111-1111-111111111106',
     'a1111111-1111-1111-1111-111111111103',
     'Chrome French Overlay',
     'nails',
+    'Nail art set',
     85.00,
-    'https://images.unsplash.com/photo-1583241800698-91cfad0f0d62?auto=format&fit=crop&w=800&q=80',
+    90,
+    'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Natural-length base with a crisp French curve and chrome powder on the tips for a mirror finish that still reads refined.'
   ),
   (
     'b1111111-1111-1111-1111-111111111107',
     'a1111111-1111-1111-1111-111111111104',
-    'Soft Glam Event Look',
-    'makeup',
+    'Fine-Line Florals + Lettering',
+    'tattoo',
+    'Fine-line tattoo',
     140.00,
-    'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1487412912498-0447578fcca8?auto=format&fit=crop&w=800&q=80',
+    150,
+    'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=800&q=80',
+    'https://images.pexels.com/photos/1319459/pexels-photo-1319459.jpeg?auto=compress&cs=tinysrgb&w=800',
     0,
-    true
+    true,
+    'Fine-line florals and script with a single-needle approach for delicate weight; flow follows your anatomy.'
   ),
   (
     'b1111111-1111-1111-1111-111111111108',
     'a1111111-1111-1111-1111-111111111104',
-    'Bridal Trial + Lashes',
-    'makeup',
+    'Japanese-Inspired Sleeve Session',
+    'tattoo',
+    'Sleeve tattoo',
     175.00,
-    'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1526045612212-70caf35c14df?auto=format&fit=crop&w=800&q=80',
+    240,
+    'https://images.pexels.com/photos/6124258/pexels-photo-6124258.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Japanese-inspired sleeve layout with bold negative space and flowing composition built for readability over time.'
   )
 ON CONFLICT (id) DO UPDATE SET
   professional_id = EXCLUDED.professional_id,
   service_title = EXCLUDED.service_title,
   category = EXCLUDED.category,
+  service_type = EXCLUDED.service_type,
   price = EXCLUDED.price,
+  duration_minutes = EXCLUDED.duration_minutes,
   before_image_path = EXCLUDED.before_image_path,
   after_image_path = EXCLUDED.after_image_path,
   sort_order = EXCLUDED.sort_order,
   published = EXCLUDED.published,
+  description = EXCLUDED.description,
   updated_at = timezone('utc', now());
 
 -- -----------------------------------------------------------------------------
@@ -267,12 +303,12 @@ INSERT INTO public.portfolio_item_tags (portfolio_item_id, tag) VALUES
   ('b1111111-1111-1111-1111-111111111106', 'french'),
   ('b1111111-1111-1111-1111-111111111106', 'chrome'),
   ('b1111111-1111-1111-1111-111111111106', 'detail'),
-  ('b1111111-1111-1111-1111-111111111107', 'soft-glam'),
-  ('b1111111-1111-1111-1111-111111111107', 'event'),
-  ('b1111111-1111-1111-1111-111111111107', 'radiant'),
-  ('b1111111-1111-1111-1111-111111111108', 'bridal'),
-  ('b1111111-1111-1111-1111-111111111108', 'lashes'),
-  ('b1111111-1111-1111-1111-111111111108', 'longwear')
+  ('b1111111-1111-1111-1111-111111111107', 'fine-line'),
+  ('b1111111-1111-1111-1111-111111111107', 'floral'),
+  ('b1111111-1111-1111-1111-111111111107', 'blackwork'),
+  ('b1111111-1111-1111-1111-111111111108', 'japanese'),
+  ('b1111111-1111-1111-1111-111111111108', 'sleeve'),
+  ('b1111111-1111-1111-1111-111111111108', 'color')
 ON CONFLICT (portfolio_item_id, tag) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
@@ -431,8 +467,8 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO public.user_preferences (user_id, preferred_categories)
 VALUES
-  ('c1111111-1111-1111-1111-111111111101', ARRAY['hair', 'makeup']::text[]),
-  ('c1111111-1111-1111-1111-111111111102', ARRAY['barber']::text[]),
+  ('c1111111-1111-1111-1111-111111111101', ARRAY['hair', 'tattoo']::text[]),
+  ('c1111111-1111-1111-1111-111111111102', ARRAY['hair']::text[]),
   ('c1111111-1111-1111-1111-111111111103', ARRAY['nails', 'hair']::text[])
 ON CONFLICT (user_id) DO UPDATE SET
   preferred_categories = EXCLUDED.preferred_categories,
@@ -574,7 +610,7 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO public.user_preferences (user_id, preferred_categories)
 VALUES
   ('e1111111-1111-1111-1111-111111111101', ARRAY['hair', 'color']::text[]),
-  ('e1111111-1111-1111-1111-111111111102', ARRAY['barber', 'beard']::text[])
+  ('e1111111-1111-1111-1111-111111111102', ARRAY['hair', 'beard']::text[])
 ON CONFLICT (user_id) DO UPDATE SET
   preferred_categories = EXCLUDED.preferred_categories,
   updated_at = timezone('utc', now());
@@ -591,6 +627,7 @@ INSERT INTO public.professionals (
   city,
   rating,
   review_count,
+  request_count,
   years_experience,
   about,
   booking_phone,
@@ -607,6 +644,7 @@ INSERT INTO public.professionals (
     'Houston',
     4.88,
     96,
+    41,
     7,
     'Lived-in color, seamless extensions, and healthy-hair-first formulation.',
     '+17135550901',
@@ -618,11 +656,12 @@ INSERT INTO public.professionals (
     'f1111111-1111-1111-1111-111111111102',
     'sloane-meyer-barber',
     'Sloane Meyer Barber',
-    'Barber & Beard Artist',
-    'barber',
+    'Cuts, fades & beard',
+    'hair',
     'Austin',
     4.92,
     132,
+    58,
     9,
     'Texture-forward fades, crisp lineups, and tailored beard design.',
     '+15125550988',
@@ -638,6 +677,7 @@ ON CONFLICT (id) DO UPDATE SET
   city = EXCLUDED.city,
   rating = EXCLUDED.rating,
   review_count = EXCLUDED.review_count,
+  request_count = EXCLUDED.request_count,
   years_experience = EXCLUDED.years_experience,
   about = EXCLUDED.about,
   booking_phone = EXCLUDED.booking_phone,
@@ -651,65 +691,83 @@ INSERT INTO public.portfolio_items (
   professional_id,
   service_title,
   category,
+  service_type,
   price,
+  duration_minutes,
   before_image_path,
   after_image_path,
   sort_order,
-  published
+  published,
+  description
 ) VALUES
   (
     'f2111111-1111-1111-1111-111111111101',
     'f1111111-1111-1111-1111-111111111101',
     'Lived-In Brunette Balayage',
     'hair',
+    'Color service',
     195.00,
+    180,
     'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
     0,
-    true
+    true,
+    'Lived-in brunette balayage with depth at the root and brighter ribbons through mids and ends.'
   ),
   (
     'f2111111-1111-1111-1111-111111111102',
     'f1111111-1111-1111-1111-111111111101',
     'Face-Framing Ribbon Lights',
     'hair',
+    'Highlight service',
     165.00,
+    150,
     'https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1595475038665-8f6c47c65d91?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Ribbon highlights around the face and crown for brightness without a heavy foil look.'
   ),
   (
     'f2111111-1111-1111-1111-111111111103',
     'f1111111-1111-1111-1111-111111111102',
     'Mid Fade With Natural Texture',
-    'barber',
+    'hair',
+    'Barber cut',
     48.00,
+    50,
     'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=800&q=80',
     0,
-    true
+    true,
+    'Mid fade with weight left on top for natural curl and movement.'
   ),
   (
     'f2111111-1111-1111-1111-111111111104',
     'f1111111-1111-1111-1111-111111111102',
     'Beard Sculpt & Lineup',
-    'barber',
+    'hair',
+    'Beard grooming',
     38.00,
+    40,
     'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=800&q=80',
     1,
-    true
+    true,
+    'Beard trim, cheek taper, and razor-sharp lineup finished with a hot towel.'
   )
 ON CONFLICT (id) DO UPDATE SET
   professional_id = EXCLUDED.professional_id,
   service_title = EXCLUDED.service_title,
   category = EXCLUDED.category,
+  service_type = EXCLUDED.service_type,
   price = EXCLUDED.price,
+  duration_minutes = EXCLUDED.duration_minutes,
   before_image_path = EXCLUDED.before_image_path,
   after_image_path = EXCLUDED.after_image_path,
   sort_order = EXCLUDED.sort_order,
   published = EXCLUDED.published,
+  description = EXCLUDED.description,
   updated_at = timezone('utc', now());
 
 INSERT INTO public.portfolio_item_tags (portfolio_item_id, tag) VALUES
@@ -764,7 +822,7 @@ INSERT INTO public.match_requests (
     'd1111111-1111-1111-1111-111111111102',
     'c1111111-1111-1111-1111-111111111102',
     'submitted',
-    'barber',
+    'hair',
     'Austin, TX',
     ARRAY['fade', 'texture', 'lineup']::text[],
     'Need a clean taper before an event.',

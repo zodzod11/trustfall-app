@@ -9,9 +9,29 @@ import type {
   UserPreferencesRow,
 } from './types'
 
+function isTransientAuthLookupError(message: string | undefined): boolean {
+  const normalized = (message ?? '').trim().toLowerCase()
+  if (!normalized) return false
+  return (
+    normalized.includes('network request failed') ||
+    normalized.includes('failed to fetch') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('network error') ||
+    normalized.includes('request timeout')
+  )
+}
+
 async function requireUserId(client: SupabaseClient): Promise<OnboardingServiceResult<string>> {
   const { data, error } = await client.auth.getUser()
-  if (error) return fail(authError(error.message))
+  if (error) {
+    if (isTransientAuthLookupError(error.message)) {
+      const {
+        data: { session },
+      } = await client.auth.getSession()
+      if (session?.user?.id) return ok(session.user.id)
+    }
+    return fail(authError(error.message))
+  }
   if (!data.user) return fail(authError('Not authenticated'))
   return ok(data.user.id)
 }

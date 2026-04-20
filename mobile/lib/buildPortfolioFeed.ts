@@ -10,6 +10,11 @@ export function buildPortfolioFeed(): PortfolioFeedItem[] {
       location: pro.city,
       professionalPhone: pro.bookingPhone,
       professionalEmail: pro.bookingEmail,
+      professionalRating: pro.rating,
+      professionalReviewCount: pro.reviewCount,
+      professionalRequestCount: pro.requestCount,
+      professionalYearsExperience: pro.yearsExperience,
+      professionalAbout: pro.about,
     })),
   )
 }

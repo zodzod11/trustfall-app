@@ -5,7 +5,7 @@
 export const ONBOARDING_STEPS = [
   { id: 'welcome', title: 'Welcome', fieldKeys: ['firstName'] as const },
   { id: 'category', title: 'Category', fieldKeys: ['categories'] as const },
-  { id: 'style', title: 'Style & inspiration', fieldKeys: ['styleTags', 'inspirationFileName'] as const },
+  { id: 'style', title: 'Style & profile photo', fieldKeys: ['styleTags', 'inspirationFileName'] as const },
   { id: 'location', title: 'Location', fieldKeys: ['location'] as const },
   {
     id: 'contact',

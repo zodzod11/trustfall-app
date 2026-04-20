@@ -1,16 +1,8 @@
 import { createClient } from '../client'
 import { ensureAuthSession } from './ensureSession'
-import { insertSubmittedMatchRequest } from './insertMatchRequest'
-import {
-  persistMatchRequestImagePaths,
-  uploadMatchRequestImages,
-} from './uploadMatchRequestImages'
 import { triggerMatchEngine } from './triggerMatchEngine'
+import { submitMatchRequestFlowWithClient, type SubmitMatchFlowResult } from './submitMatchFlowShared'
 import type { MatchRequestDraft } from '../../types'
-
-export type SubmitMatchFlowResult =
-  | { ok: true; matchRequestId: string }
-  | { ok: false; error: string }
 
 /**
  * Persists a submitted match request, uploads optional images, then triggers the rules engine.
@@ -32,46 +24,11 @@ export async function submitMatchRequestFlow(
   const userId = auth.userId
 
   const supabase = createClient()
-
-  const inserted = await insertSubmittedMatchRequest(supabase, draft, userId)
-  if (inserted.error || !inserted.id) {
-    return { ok: false, error: inserted.error ?? 'Failed to save match request' }
-  }
-
-  const matchRequestId = inserted.id
-
-  if (files.inspiration || files.current) {
-    const { paths, error: upErr } = await uploadMatchRequestImages(
-      supabase,
-      userId,
-      matchRequestId,
-      files.inspiration,
-      files.current,
-    )
-    if (upErr) {
-      return { ok: false, error: upErr }
-    }
-    if (paths.inspiration_image_path || paths.current_photo_path) {
-      const { error: patchErr } = await persistMatchRequestImagePaths(
-        supabase,
-        matchRequestId,
-        paths,
-      )
-      if (patchErr) {
-        return { ok: false, error: patchErr }
-      }
-    }
-  }
-
-  const triggered = await triggerMatchEngine(matchRequestId)
-  if (!triggered.ok) {
-    return {
-      ok: false,
-      error:
-        triggered.error ??
-        'Match request saved but the matcher could not be started. Try again from your profile later.',
-    }
-  }
-
-  return { ok: true, matchRequestId }
+  return submitMatchRequestFlowWithClient({
+    supabase,
+    userId,
+    draft,
+    files,
+    trigger: triggerMatchEngine,
+  })
 }

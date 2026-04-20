@@ -1,36 +1,29 @@
-import type {
-  MatchResult,
-  PortfolioItem,
-  Professional,
-  Request,
-  SavedItem,
-  User,
-} from '@/types'
+import type { PortfolioItem, Professional, User } from '@/types'
 
 export const usersSeed: User[] = [
   {
-    id: 'u_001',
+    id: 'c1111111-1111-1111-1111-111111111101',
     firstName: 'Maya',
     lastName: 'Johnson',
     email: 'maya.johnson@example.com',
     phone: '+17135550100',
     city: 'Houston',
-    preferredCategories: ['hair', 'makeup'],
+    preferredCategories: ['hair', 'tattoo'],
     budgetMin: 85,
     budgetMax: 240,
   },
   {
-    id: 'u_002',
+    id: 'c1111111-1111-1111-1111-111111111102',
     firstName: 'Chris',
     lastName: 'Davis',
     email: 'chris.davis@example.com',
     city: 'Austin',
-    preferredCategories: ['barber'],
+    preferredCategories: ['hair'],
     budgetMin: 35,
     budgetMax: 110,
   },
   {
-    id: 'u_003',
+    id: 'c1111111-1111-1111-1111-111111111103',
     firstName: 'Alina',
     lastName: 'Patel',
     email: 'alina.patel@example.com',
@@ -41,261 +34,203 @@ export const usersSeed: User[] = [
   },
 ]
 
-const barberPortfolio: PortfolioItem[] = [
+/** Andre Cuts — fades & tapers; stored as `hair` (same catalog as color/cut pros). */
+const andreCutsPortfolio: PortfolioItem[] = [
   {
-    id: 'p_barber_1',
-    professionalId: 'pro_001',
+    id: 'b1111111-1111-1111-1111-111111111101',
+    professionalId: 'a1111111-1111-1111-1111-111111111101',
     beforeImageUrl:
       'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
       'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=800&q=80',
     price: 55,
     serviceTitle: 'Skin Fade + Beard Lineup',
+    serviceType: 'Barber cut',
+    durationMinutes: 60,
     tags: ['fade', 'beard', 'precision'],
-    category: 'barber',
+    category: 'hair',
+    description:
+      'Clipper and shear work for a mid drop fade, tight lineup, and beard carved to your jawline with a matte, natural finish.',
   },
   {
-    id: 'p_barber_2',
-    professionalId: 'pro_001',
+    id: 'b1111111-1111-1111-1111-111111111102',
+    professionalId: 'a1111111-1111-1111-1111-111111111101',
     beforeImageUrl:
       'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
       'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=800&q=80',
     price: 45,
     serviceTitle: 'Classic Taper Cut',
+    serviceType: 'Taper cut',
+    durationMinutes: 45,
     tags: ['taper', 'classic', 'clean'],
-    category: 'barber',
+    category: 'hair',
+    description:
+      'Classic taper with weight on top, clean temple fade, and blended nape—finished with shear work for a neat everyday shape.',
   },
 ]
 
 const hairPortfolio: PortfolioItem[] = [
   {
-    id: 'p_hair_1',
-    professionalId: 'pro_002',
+    id: 'b1111111-1111-1111-1111-111111111103',
+    professionalId: 'a1111111-1111-1111-1111-111111111102',
     beforeImageUrl:
-      'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
       'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80',
     price: 180,
     serviceTitle: 'Balayage + Gloss',
+    serviceType: 'Color service',
+    durationMinutes: 180,
     tags: ['balayage', 'color', 'dimensional'],
     category: 'hair',
+    description:
+      'Hand-painted ribbons of light with a glossing toner for shine and warmth control. Soft grow-out with dimensional depth.',
   },
   {
-    id: 'p_hair_2',
-    professionalId: 'pro_002',
+    id: 'b1111111-1111-1111-1111-111111111104',
+    professionalId: 'a1111111-1111-1111-1111-111111111102',
     beforeImageUrl:
       'https://images.unsplash.com/photo-1523263685509-57c1d050d19b?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
-      'https://images.unsplash.com/photo-1595475038665-8f6c47c65d91?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=800&q=80',
     price: 95,
     serviceTitle: 'Precision Bob + Blowout',
+    serviceType: 'Cut and blowout',
+    durationMinutes: 90,
     tags: ['cut', 'blowout', 'modern'],
     category: 'hair',
+    description:
+      'Precision one-length bob with subtle layering for movement, finished with a round-brush blowout for swing and polish.',
   },
 ]
 
 const nailsPortfolio: PortfolioItem[] = [
   {
-    id: 'p_nails_1',
-    professionalId: 'pro_003',
+    id: 'b1111111-1111-1111-1111-111111111105',
+    professionalId: 'a1111111-1111-1111-1111-111111111103',
     beforeImageUrl:
       'https://images.unsplash.com/photo-1610992015732-2449b76344bc?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
       'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=800&q=80',
     price: 70,
     serviceTitle: 'Structured Gel Set',
+    serviceType: 'Structured manicure',
+    durationMinutes: 75,
     tags: ['gel', 'almond', 'longwear'],
     category: 'nails',
+    description:
+      'Structured gel on almond lengths with apex support for durability, clean architecture, and a high-gloss top coat.',
   },
   {
-    id: 'p_nails_2',
-    professionalId: 'pro_003',
+    id: 'b1111111-1111-1111-1111-111111111106',
+    professionalId: 'a1111111-1111-1111-1111-111111111103',
     beforeImageUrl:
-      'https://images.unsplash.com/photo-1583241800698-91cfad0f0d62?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
       'https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=800&q=80',
     price: 85,
     serviceTitle: 'Chrome French Overlay',
+    serviceType: 'Nail art set',
+    durationMinutes: 90,
     tags: ['french', 'chrome', 'detail'],
     category: 'nails',
+    description:
+      'Natural-length base with a crisp French curve and chrome powder on the tips for a mirror finish that still reads refined.',
   },
 ]
 
-const makeupPortfolio: PortfolioItem[] = [
+const tattooPortfolio: PortfolioItem[] = [
   {
-    id: 'p_makeup_1',
-    professionalId: 'pro_004',
+    id: 'b1111111-1111-1111-1111-111111111107',
+    professionalId: 'a1111111-1111-1111-1111-111111111104',
     beforeImageUrl:
-      'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=800&q=80',
     afterImageUrl:
-      'https://images.unsplash.com/photo-1487412912498-0447578fcca8?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/1319459/pexels-photo-1319459.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 140,
-    serviceTitle: 'Soft Glam Event Look',
-    tags: ['soft-glam', 'event', 'radiant'],
-    category: 'makeup',
+    serviceTitle: 'Fine-Line Florals + Lettering',
+    serviceType: 'Fine-line tattoo',
+    durationMinutes: 150,
+    tags: ['fine-line', 'floral', 'blackwork'],
+    category: 'tattoo',
+    description:
+      'Fine-line florals and script with a single-needle approach for delicate weight; flow follows your anatomy.',
   },
   {
-    id: 'p_makeup_2',
-    professionalId: 'pro_004',
+    id: 'b1111111-1111-1111-1111-111111111108',
+    professionalId: 'a1111111-1111-1111-1111-111111111104',
     beforeImageUrl:
-      'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?auto=format&fit=crop&w=800&q=80',
+      'https://images.pexels.com/photos/6124258/pexels-photo-6124258.jpeg?auto=compress&cs=tinysrgb&w=800',
     afterImageUrl:
-      'https://images.unsplash.com/photo-1526045612212-70caf35c14df?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
     price: 175,
-    serviceTitle: 'Bridal Trial + Lashes',
-    tags: ['bridal', 'lashes', 'longwear'],
-    category: 'makeup',
+    serviceTitle: 'Japanese-Inspired Sleeve Session',
+    serviceType: 'Sleeve tattoo',
+    durationMinutes: 240,
+    tags: ['japanese', 'sleeve', 'color'],
+    category: 'tattoo',
+    description:
+      'Japanese-inspired sleeve layout with bold negative space and flowing composition built for readability over time.',
   },
 ]
 
 export const professionalsSeed: Professional[] = [
   {
-    id: 'pro_001',
+    id: 'a1111111-1111-1111-1111-111111111101',
     displayName: 'Andre Cuts',
-    title: 'Master Barber',
-    category: 'barber',
+    title: 'Cuts, fades & beard shaping',
+    category: 'hair',
     city: 'Austin',
     rating: 4.9,
     reviewCount: 214,
+    requestCount: 89,
     yearsExperience: 11,
-    about: 'Fade specialist known for clean tapers and detailed beard shaping.',
+    about: 'Fade specialist for clean tapers, detailed beard shaping, and precision cuts.',
     bookingPhone: '+16177550418',
     bookingEmail: 'zodzod11@gmail.com',
-    portfolioItems: barberPortfolio,
+    portfolioItems: andreCutsPortfolio,
   },
   {
-    id: 'pro_002',
+    id: 'a1111111-1111-1111-1111-111111111102',
     displayName: 'Luna Hale Studio',
     title: 'Colorist & Stylist',
     category: 'hair',
     city: 'Houston',
     rating: 4.8,
     reviewCount: 168,
+    requestCount: 62,
     yearsExperience: 9,
     about: 'Dimensional color and editorial cuts with low-maintenance grow-out.',
+    bookingPhone: '+17135550182',
     portfolioItems: hairPortfolio,
   },
   {
-    id: 'pro_003',
+    id: 'a1111111-1111-1111-1111-111111111103',
     displayName: 'Nail Atelier by Rina',
     title: 'Nail Artist',
     category: 'nails',
     city: 'Dallas',
     rating: 4.9,
     reviewCount: 192,
+    requestCount: 71,
     yearsExperience: 8,
     about: 'Structured gel sets and fine-line designs with luxury prep.',
+    bookingPhone: '+12145550147',
     portfolioItems: nailsPortfolio,
   },
   {
-    id: 'pro_004',
-    displayName: 'Camille MUA',
-    title: 'Makeup Artist',
-    category: 'makeup',
+    id: 'a1111111-1111-1111-1111-111111111104',
+    displayName: 'Northline Ink',
+    title: 'Tattoo Artist',
+    category: 'tattoo',
     city: 'Houston',
     rating: 4.95,
     reviewCount: 143,
+    requestCount: 54,
     yearsExperience: 10,
-    about: 'Skin-first makeup for events, bridal sessions, and camera-ready looks.',
-    portfolioItems: makeupPortfolio,
-  },
-]
-
-export const requestsSeed: Request[] = [
-  {
-    id: 'req_001',
-    userId: 'u_001',
-    category: 'makeup',
-    serviceTitle: 'Engagement Photo Makeup',
-    budget: 160,
-    preferredDate: '2026-04-18',
-    notes: 'Natural finish, soft lashes, and warm-neutral palette.',
-    status: 'matched',
-  },
-  {
-    id: 'req_002',
-    userId: 'u_002',
-    category: 'barber',
-    serviceTitle: 'Weekly Fade + Beard Cleanup',
-    budget: 60,
-    preferredDate: '2026-04-03',
-    notes: 'Tight skin fade, keep beard length but sharpen cheek line.',
-    status: 'pending',
-  },
-  {
-    id: 'req_003',
-    userId: 'u_003',
-    category: 'nails',
-    serviceTitle: 'Birthday Set',
-    budget: 90,
-    preferredDate: '2026-04-11',
-    notes: 'Almond shape, chrome accents, medium length.',
-    status: 'booked',
-  },
-]
-
-export const savedItemsSeed: SavedItem[] = [
-  {
-    id: 'save_001',
-    userId: 'u_001',
-    professionalId: 'pro_004',
-    savedAt: '2026-03-20T15:12:00Z',
-    note: 'Top pick for engagement shoot.',
-  },
-  {
-    id: 'save_002',
-    userId: 'u_002',
-    professionalId: 'pro_001',
-    savedAt: '2026-03-25T09:04:00Z',
-  },
-  {
-    id: 'save_003',
-    userId: 'u_003',
-    professionalId: 'pro_003',
-    savedAt: '2026-03-28T19:45:00Z',
-    note: 'Great line work in portfolio.',
-  },
-]
-
-export const matchResultsSeed: MatchResult[] = [
-  {
-    id: 'mr_001',
-    requestId: 'req_001',
-    userId: 'u_001',
-    professionalId: 'pro_004',
-    score: 0.94,
-    scoreLabel: '94% fit',
-    reasons: [
-      'Specializes in soft-glam event looks',
-      'Within target budget range',
-      'Consistently high repeat-client ratings',
-    ],
-  },
-  {
-    id: 'mr_002',
-    requestId: 'req_002',
-    userId: 'u_002',
-    professionalId: 'pro_001',
-    score: 0.91,
-    scoreLabel: '91% fit',
-    reasons: [
-      'Portfolio strongly matches requested fade style',
-      'Located in same city',
-      'Price aligns with requested budget',
-    ],
-  },
-  {
-    id: 'mr_003',
-    requestId: 'req_003',
-    userId: 'u_003',
-    professionalId: 'pro_003',
-    score: 0.89,
-    scoreLabel: '89% fit',
-    reasons: [
-      'Strong match on chrome and detail-heavy nail work',
-      'Availability near preferred date',
-      'High rating for longwear structure sets',
-    ],
+    about: 'Custom linework, botanicals, and Japanese-inspired pieces with a focus on flow and longevity.',
+    bookingPhone: '+17135550194',
+    portfolioItems: tattooPortfolio,
   },
 ]

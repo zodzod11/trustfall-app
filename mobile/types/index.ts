@@ -4,7 +4,7 @@ export type * from './database'
 /** User-side domain inputs (services/user, domain/user). */
 export type * from '../domain/user'
 
-export type ServiceCategory = 'barber' | 'hair' | 'nails' | 'makeup'
+export type ServiceCategory = 'hair' | 'nails' | 'makeup' | 'tattoo'
 
 export type User = {
   id: string
@@ -25,8 +25,14 @@ export type PortfolioItem = {
   afterImageUrl: string
   price: number
   serviceTitle: string
+  /** Consumer-facing service grouping (e.g. haircut, color, nail art). */
+  serviceType?: string
+  /** Optional appointment length for services tab and list cards. */
+  durationMinutes?: number
   tags: string[]
   category: ServiceCategory
+  /** Piece-specific copy; shown on portfolio detail when set. */
+  description?: string
 }
 
 export type PortfolioFeedItem = PortfolioItem & {
@@ -38,6 +44,7 @@ export type PortfolioFeedItem = PortfolioItem & {
   /** Set when using Supabase catalog or seed detail screens */
   professionalRating?: number
   professionalReviewCount?: number
+  professionalRequestCount?: number
   professionalYearsExperience?: number
   professionalAbout?: string
 }
@@ -50,11 +57,56 @@ export type Professional = {
   city: string
   rating: number
   reviewCount: number
+  /** Match / contact requests shown on pro storefront (separate from reviews). */
+  requestCount: number
   yearsExperience: number
   about: string
   bookingPhone?: string
   bookingEmail?: string
   portfolioItems: PortfolioItem[]
+}
+
+/** Structured location for matching / future radius search (Step 4). */
+export type MatchLocationPick = {
+  source: 'current_location' | 'manual'
+  city: string
+  state: string
+  zip?: string
+  latitude: number
+  longitude: number
+}
+
+export type MatchDatePreset = 'today' | 'this_weekend' | 'next_week' | 'anytime'
+
+export type MatchDateSelection =
+  | { type: 'exact'; exactDate: string }
+  | { type: 'range'; startDate: string; endDate: string }
+  | { type: 'preset'; preset: MatchDatePreset }
+
+export type MatchTimeBlock = 'morning' | 'afternoon' | 'evening' | 'night'
+
+export type MatchTimeSelection =
+  | {
+      type: 'block'
+      blocks: MatchTimeBlock[]
+    }
+  | {
+      type: 'exact'
+      exactTime: string
+    }
+  | {
+      type: 'range'
+      startTime: string
+      endTime: string
+    }
+
+/** Step 4 “Refine your match” — structured fields for backend / ranking. */
+export type MatchRefinement = {
+  location?: MatchLocationPick
+  /** Preferred search radius around selected location. */
+  radiusMiles?: number
+  date?: MatchDateSelection
+  time?: MatchTimeSelection
 }
 
 export type MatchRequestDraft = {
@@ -65,14 +117,26 @@ export type MatchRequestDraft = {
   /** Local file URI for “current photo” preview. */
   currentPhotoUri?: string
   notes: string
+  /** Mirrors web match payload fields when present. */
+  desiredStyleText?: string
+  currentStateText?: string
+  budgetMin?: string
+  budgetMax?: string
+  savedLookPortfolioItemId?: string
   tags: string[]
   category: ServiceCategory | 'brows' | 'tattoo' | ''
+  /** Display line derived from `refinement.location` (ranking + prefill). */
   location: string
+  /** Structured Step 4 data — prefer this for filters / API. */
+  refinement: MatchRefinement
 }
 
 export type MatchResultsMatchedPiece = {
   id: string
+  /** Primary “after” image for thumbnails and booking. */
   imageUrl: string
+  /** When present, enables full before/after review in Match (same as Explore detail). */
+  beforeImageUrl?: string
   serviceTitle: string
   scoreLabel: string
 }
@@ -92,7 +156,7 @@ export type MatchResultsRankedProfessional = {
   labels: string[]
   matchedPieces: MatchResultsMatchedPiece[]
   /** Internal ranking score */
-  score: number
+  score?: number
 }
 
 export type RequestStatus = 'pending' | 'matched' | 'booked' | 'closed'

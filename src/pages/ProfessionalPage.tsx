@@ -3,6 +3,7 @@ import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { PortfolioCard } from '../components/explore/PortfolioCard'
 import { PageHeader } from '../components/layout/PageHeader'
 import { useProfessionalPortfolio } from '../hooks/useProfessionalPortfolio'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
 
 export function ProfessionalPage() {
   const { id } = useParams()
@@ -53,6 +54,7 @@ export function ProfessionalPage() {
         city: items[0]?.location ?? '',
         rating: items[0]?.professionalRating ?? 0,
         reviewCount: items[0]?.professionalReviewCount ?? 0,
+        requestCount: items[0]?.professionalRequestCount ?? 0,
         yearsExperience: items[0]?.professionalYearsExperience ?? 0,
         about: items[0]?.professionalAbout ?? '',
         bookingPhone: items[0]?.professionalPhone,
@@ -108,7 +110,7 @@ export function ProfessionalPage() {
       </Link>
 
       <PageHeader
-        eyebrow={professional.category}
+        eyebrow={formatDisplayLabel(professional.category)}
         title={professional.displayName}
         description={`${professional.title} · ${professional.city}`}
       />
@@ -124,9 +126,9 @@ export function ProfessionalPage() {
           </div>
           <div className="rounded-xl border border-border bg-background px-3 py-3 text-center">
             <p className="text-base font-semibold text-foreground">
-              {professional.reviewCount}
+              {professional.requestCount}
             </p>
-            <p className="text-[10px] uppercase tracking-wide text-muted">Reviews</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">Requests</p>
           </div>
           <div className="rounded-xl border border-border bg-background px-3 py-3 text-center">
             <p className="text-base font-semibold text-foreground">

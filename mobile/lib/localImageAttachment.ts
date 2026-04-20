@@ -2,6 +2,12 @@ import * as FileSystem from 'expo-file-system/legacy'
 
 import type { NotifyAttachmentPart } from '@/lib/notifyContactRequest'
 
+export type LocalUploadSource = {
+  bytes: ArrayBuffer
+  filename: string
+  contentType: string
+}
+
 function contentTypeForFilename(filename: string): string {
   const lower = filename.toLowerCase()
   if (lower.endsWith('.png')) return 'image/png'
@@ -19,6 +25,35 @@ function extForUri(uri: string, filename: string): 'jpg' | 'jpeg' | 'png' | 'web
 }
 
 export { extForUri }
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = globalThis.atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes.buffer
+}
+
+export async function uriToUploadSource(
+  uri: string,
+  filename: string,
+): Promise<LocalUploadSource | null> {
+  if (!uri) return null
+  try {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    })
+    const safeName = filename?.trim() || 'image.jpg'
+    return {
+      bytes: base64ToArrayBuffer(base64),
+      filename: safeName,
+      contentType: contentTypeForFilename(safeName),
+    }
+  } catch {
+    return null
+  }
+}
 
 /** Read a local `file://` or content URI into base64 for the notify API (SendGrid). */
 export async function uriToNotifyAttachment(

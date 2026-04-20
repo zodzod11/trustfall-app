@@ -28,11 +28,14 @@ export async function listMySavedPortfolios(): Promise<UserServiceResult<SavedPo
         professional_id,
         service_title,
         category,
+        service_type,
         price,
+        duration_minutes,
         before_image_path,
         after_image_path,
         sort_order,
         published,
+        description,
         created_at,
         updated_at
       )

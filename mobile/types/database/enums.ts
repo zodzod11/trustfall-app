@@ -13,4 +13,10 @@ export type MatchRequestStatus = 'draft' | 'submitted' | 'cancelled'
 export type MatchResultStatus = 'pending' | 'ready' | 'failed'
 
 /** contact_requests.status */
-export type ContactRequestStatus = 'pending' | 'viewed' | 'declined' | 'accepted' | 'cancelled'
+export type ContactRequestStatus =
+  | 'submitted'
+  | 'notified'
+  | 'viewed'
+  | 'responded'
+  | 'closed'
+  | 'cancelled'

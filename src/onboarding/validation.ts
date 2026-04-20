@@ -69,7 +69,7 @@ export function validateForComplete(draft: OnboardingFormValues): { ok: true } |
   if (!styleOk && !inspOk) {
     return {
       ok: false,
-      message: 'Add at least one style tag or an inspiration reference (optional label)',
+      message: 'Add at least one style tag or a profile picture',
     }
   }
   return { ok: true }

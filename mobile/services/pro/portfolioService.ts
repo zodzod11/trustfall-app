@@ -26,11 +26,14 @@ function toPortfolioInsert(input: CreatePortfolioItemInput): PortfolioItemInsert
     professional_id: input.professional_id,
     service_title: input.service_title,
     category: input.category,
+    service_type: input.service_type ?? null,
     price: input.price ?? null,
+    duration_minutes: input.duration_minutes ?? null,
     before_image_path: input.before_image_path ?? null,
     after_image_path: input.after_image_path ?? null,
     sort_order: input.sort_order ?? 0,
     published: input.published ?? false,
+    description: input.description ?? null,
   }
 }
 
@@ -38,11 +41,14 @@ function toPortfolioUpdate(patch: UpdatePortfolioItemInput): PortfolioItemUpdate
   const u: PortfolioItemUpdate = {}
   if (patch.service_title !== undefined) u.service_title = patch.service_title
   if (patch.category !== undefined) u.category = patch.category
+  if (patch.service_type !== undefined) u.service_type = patch.service_type
   if (patch.price !== undefined) u.price = patch.price
+  if (patch.duration_minutes !== undefined) u.duration_minutes = patch.duration_minutes
   if (patch.before_image_path !== undefined) u.before_image_path = patch.before_image_path
   if (patch.after_image_path !== undefined) u.after_image_path = patch.after_image_path
   if (patch.sort_order !== undefined) u.sort_order = patch.sort_order
   if (patch.published !== undefined) u.published = patch.published
+  if (patch.description !== undefined) u.description = patch.description
   return u
 }
 
@@ -213,7 +219,7 @@ export async function fetchProDashboardForCurrentUser(options?: {
 
   const itemRows = (items ?? []) as PortfolioItemRow[]
   const ids = itemRows.map((i) => i.id)
-  let tagsByItem = new Map<string, string[]>()
+  const tagsByItem = new Map<string, string[]>()
 
   if (ids.length > 0) {
     const { data: tagData, error: tagErr } = await supabase
@@ -244,7 +250,7 @@ export async function fetchProDashboardForCurrentUser(options?: {
       .from('contact_requests')
       .select('id', { count: 'exact', head: true })
       .eq('professional_id', professional.id)
-      .eq('status', 'pending')
+      .in('status', ['submitted', 'notified', 'viewed', 'responded'])
 
     if (cErr) return fail(cErr)
     const inbox: ProDashboardInboxSummary = {

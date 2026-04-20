@@ -13,10 +13,12 @@ import {
 import { PageHeader } from '../components/layout/PageHeader'
 import { useExplorePortfolioDetail } from '../hooks/useExplorePortfolioDetail'
 import { useSaved } from '../hooks/useSaved'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
 
 type PortfolioDetailItem = PortfolioFeedItem & {
   professionalRating: number
   professionalReviewCount: number
+  professionalRequestCount: number
   professionalYearsExperience: number
   professionalAbout: string
 }
@@ -27,7 +29,6 @@ export function ExploreDetailPage() {
   const [requestMessagePrefill, setRequestMessagePrefill] =
     useState(DEFAULT_REQUEST_MESSAGE)
   const {
-    requestSubmissions,
     addRequestSubmission,
     isPortfolioItemSaved,
     isProfessionalSaved,
@@ -42,6 +43,7 @@ export function ExploreDetailPage() {
       ...rawItem,
       professionalRating: rawItem.professionalRating ?? 0,
       professionalReviewCount: rawItem.professionalReviewCount ?? 0,
+      professionalRequestCount: rawItem.professionalRequestCount ?? 0,
       professionalYearsExperience: rawItem.professionalYearsExperience ?? 0,
       professionalAbout: rawItem.professionalAbout ?? '',
     }
@@ -90,7 +92,7 @@ export function ExploreDetailPage() {
           />
 
           <PageHeader
-            eyebrow={selectedItem.category}
+            eyebrow={formatDisplayLabel(selectedItem.category)}
             title={selectedItem.serviceTitle}
             description={`${selectedItem.professionalName} · ${selectedItem.location}`}
           />
@@ -107,7 +109,7 @@ export function ExploreDetailPage() {
               </div>
               <div className="text-right text-xs text-muted">
                 <p>{selectedItem.professionalRating.toFixed(1)} average rating</p>
-                <p>{selectedItem.professionalReviewCount} reviews</p>
+                <p>{selectedItem.professionalRequestCount} requests</p>
                 <p>{selectedItem.professionalYearsExperience} years experience</p>
               </div>
             </div>
@@ -125,8 +127,11 @@ export function ExploreDetailPage() {
                 </Link>{' '}
                 · {selectedItem.professionalTitle}
               </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                {selectedItem.description?.trim() ? 'About this look' : 'About this professional'}
+              </p>
               <p className="text-sm leading-relaxed text-muted">
-                {selectedItem.professionalAbout}
+                {selectedItem.description?.trim() || selectedItem.professionalAbout}
               </p>
               <button
                 type="button"
@@ -143,9 +148,9 @@ export function ExploreDetailPage() {
               {selectedItem.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="tf-tag px-2.5 py-1 text-[10px] uppercase tracking-wide"
+                  className="tf-tag px-2.5 py-1 text-[10px] tracking-wide"
                 >
-                  {tag}
+                  {formatDisplayLabel(tag)}
                 </span>
               ))}
             </div>
@@ -191,12 +196,6 @@ export function ExploreDetailPage() {
                 Text
               </a>
             </div>
-            {requestSubmissions.length > 0 ? (
-              <p className="text-center text-xs text-muted">
-                {requestSubmissions.length} request
-                {requestSubmissions.length > 1 ? 's' : ''} stored in local state.
-              </p>
-            ) : null}
           </section>
 
           <section className="space-y-4">
@@ -227,9 +226,11 @@ export function ExploreDetailPage() {
       {selectedItem && isRequestModalOpen ? (
         <RequestModal
           onClose={() => setIsRequestModalOpen(false)}
+          professionalId={selectedItem.professionalId}
           portfolioItemId={selectedItem.id}
           portfolioImageUrl={selectedItem.afterImageUrl}
           serviceTitle={selectedItem.serviceTitle}
+          categorySnapshot={selectedItem.category}
           proName={selectedItem.professionalName}
           phoneNumber={selectedItem.professionalPhone ?? '+17135551234'}
           proEmail={selectedItem.professionalEmail}

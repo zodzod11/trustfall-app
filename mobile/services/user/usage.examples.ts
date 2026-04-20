@@ -25,7 +25,7 @@ import {
 export async function exampleSavePrefsAfterOnboarding() {
   const res = await saveUserPreferences({
     onboarding_completed_at: new Date().toISOString(),
-    preferred_categories: ['hair', 'makeup'],
+    preferred_categories: ['hair', 'tattoo'],
     extra: { styleTags: ['natural', 'soft glam'] },
   })
   return res

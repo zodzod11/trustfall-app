@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { formatDisplayLabel } from '../../lib/formatDisplayLabel'
 import type { ExploreCard as ExploreCardType } from '../../types'
 import { cn } from '../../utils/cn'
 
@@ -20,7 +21,7 @@ export function ExploreCard({ card }: Props) {
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
         <span className="tf-tag absolute left-4 top-4 backdrop-blur-sm">
-          {card.tag}
+          {formatDisplayLabel(card.tag)}
         </span>
       </div>
       <div className="space-y-1 px-4 py-4">

@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { TrustfallLogo } from '../components/brand/TrustfallLogo'
+import { useBrowserOnline } from '../hooks/useBrowserOnline'
 import { createClient } from '../lib/client'
 import { cn } from '../utils/cn'
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+}
 
 export function SignInPage() {
   const [searchParams] = useSearchParams()
@@ -13,12 +18,18 @@ export function SignInPage() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const isOnline = useBrowserOnline()
+  const emailError = email.trim().length > 0 && !isValidEmail(email) ? 'Enter a valid email address.' : null
 
   async function submit() {
     setError(null)
     const e = email.trim()
     if (!e || !password) {
       setError('Enter email and password.')
+      return
+    }
+    if (!isValidEmail(e)) {
+      setError('Enter a valid email address.')
       return
     }
     setBusy(true)
@@ -53,6 +64,11 @@ export function SignInPage() {
             </Link>
             .
           </p>
+          {!isOnline ? (
+            <p className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+              You&apos;re offline. Sign-in will work again once your connection returns.
+            </p>
+          ) : null}
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Email</span>
             <input
@@ -64,6 +80,7 @@ export function SignInPage() {
               placeholder="you@example.com"
               disabled={busy}
             />
+            {emailError ? <p className="text-xs text-destructive/90">{emailError}</p> : null}
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Password</span>
@@ -85,7 +102,7 @@ export function SignInPage() {
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={busy}
+            disabled={busy || !isOnline}
             className={cn('tf-button-primary w-full', busy && 'pointer-events-none opacity-70')}
           >
             {busy ? 'Signing in…' : 'Sign in'}

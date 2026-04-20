@@ -1,4 +1,5 @@
 import type { MatchRequestDraft } from '../types'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
 
 const OPENING_LINE =
   'Hi, I’m interested in this style and wanted to check availability.'
@@ -12,13 +13,13 @@ export function buildMatchRequestPrefillMessage(
   const lines: string[] = [OPENING_LINE, '']
 
   if (request.category) {
-    lines.push(`Service category: ${request.category}`)
+    lines.push(`Service category: ${formatDisplayLabel(request.category)}`)
   }
   if (request.location.trim()) {
     lines.push(`Location / area: ${request.location.trim()}`)
   }
   if (request.tags.length > 0) {
-    lines.push(`Style tags: ${request.tags.join(', ')}`)
+    lines.push(`Style tags: ${request.tags.map(formatDisplayLabel).join(', ')}`)
   }
   if (request.notes.trim()) {
     lines.push('', 'My vision:', request.notes.trim())

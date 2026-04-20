@@ -1,6 +1,7 @@
 import { deriveOnboardingState } from '../services/onboarding/extra'
 import type { ClientProfileRow, UserPreferencesRow } from '../services/onboarding/types'
 import type { ServiceCategory } from '../types'
+import { formatPhoneNumber } from '../lib/phone'
 import {
   emptyOnboardingDraft,
   type OnboardingFormValues,
@@ -17,7 +18,7 @@ export function serverSnapshotToDraft(server: PersistedOnboardingSnapshot): Onbo
     location: server.location,
     contactPreference: server.contactPreference,
     email: server.email ?? '',
-    phone: server.phone ?? '',
+    phone: formatPhoneNumber(server.phone ?? ''),
     password: '',
   }
 }

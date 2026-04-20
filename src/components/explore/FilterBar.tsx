@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDisplayLabel } from '../../lib/formatDisplayLabel'
 import type { ServiceCategory } from '../../types'
 import { cn } from '../../utils/cn'
 
@@ -15,10 +16,10 @@ type FilterBarProps = {
 }
 
 const categoryLabel: Record<ServiceCategory, string> = {
-  barber: 'Barber',
   hair: 'Hair',
   nails: 'Nails',
   makeup: 'Makeup',
+  tattoo: 'Tattoo',
 }
 
 export function FilterBar({
@@ -43,7 +44,7 @@ export function FilterBar({
       parts.push(selectedLocation)
     }
     if (selectedTag !== 'all') {
-      parts.push(selectedTag)
+      parts.push(formatDisplayLabel(selectedTag))
     }
     return parts.length > 0 ? parts.join(' · ') : 'All styles, locations, tags'
   }, [selectedCategory, selectedLocation, selectedTag])
@@ -89,7 +90,7 @@ export function FilterBar({
             options={['all', ...locations]}
             selected={selectedLocation}
             onSelect={onLocationChange}
-            renderLabel={(value) => (value === 'all' ? 'All' : value)}
+            renderLabel={(value) => (value === 'all' ? 'All' : formatDisplayLabel(value))}
           />
 
           <FilterRow
@@ -132,7 +133,7 @@ function FilterRow({
               type="button"
               onClick={() => onSelect(option)}
               className={cn(
-                'whitespace-nowrap rounded-xl border px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] transition',
+                'whitespace-nowrap rounded-xl border px-5 py-2.5 text-[11px] font-bold tracking-[0.16em] transition',
                 isActive
                   ? 'border-primary bg-primary text-primary-foreground shadow-[0_10px_28px_-8px_rgba(47,99,230,0.75)]'
                   : 'border-border bg-surface-elevated text-muted hover:border-primary/50 hover:text-secondary',

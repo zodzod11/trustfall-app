@@ -1,4 +1,8 @@
 // Allow importing shared app code from the repo root (e.g. `src/services/onboarding`).
+//
+// Metro may request manifest assets as `project/assets/...` (invalid relative path). The repo keeps
+// `mobile/project` as a symlink to `mobile/` so those paths resolve. If assets 404, run:
+//   cd mobile && ln -sf . project
 const { getDefaultConfig } = require('expo/metro-config')
 const path = require('path')
 const metroResolver = require('metro-resolver')

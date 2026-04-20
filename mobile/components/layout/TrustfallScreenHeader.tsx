@@ -3,7 +3,9 @@ import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { type ReactNode } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { LiquidGlassSurface } from '@/components/navigation/LiquidGlassSurface'
 import { TrustfallColors, TrustfallSpacing } from '@/constants/trustfall-theme'
+import { useNavigationGlassOptional } from '@/contexts/NavigationGlassContext'
 
 type Props = {
   title: string
@@ -18,6 +20,34 @@ type Props = {
 const SLOT_W = 72
 
 export function TrustfallScreenHeader({ title, subtitle, left, right }: Props) {
+  const { variant } = useNavigationGlassOptional()
+  const floating = variant === 'light' || variant === 'strong'
+
+  if (floating) {
+    return (
+      <View style={styles.floatingOuter} pointerEvents="box-none">
+        <LiquidGlassSurface
+          variant={variant}
+          style={styles.floatingShell}
+          contentStyle={styles.inner}
+        >
+          <View style={styles.slot}>{left ?? <View style={{ width: SLOT_W }} />}</View>
+          <View style={styles.center}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.slot}>{right ?? <View style={{ width: SLOT_W }} />}</View>
+        </LiquidGlassSurface>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.wrap}>
       {Platform.OS === 'web' ? (
@@ -73,13 +103,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
+  floatingOuter: {
+    paddingHorizontal: TrustfallSpacing.lg,
+    paddingTop: 6,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  floatingShell: {
+    width: '100%',
+  },
   webBackdrop: {
     backgroundColor: 'rgba(11, 19, 38, 0.82)',
     backdropFilter: 'blur(24px)' as never,
   },
   inner: {
-    position: 'relative',
-    zIndex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: TrustfallSpacing.lg,

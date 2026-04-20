@@ -1,12 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TfButton } from '@/components/ui/TfButton'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
@@ -33,6 +27,10 @@ export default function SettingsScreen() {
         <Text style={styles.body}>
           Manage your Trustfall session. More options will appear here as the product grows.
         </Text>
+        <Text style={styles.sectionLabel}>Support</Text>
+        <Text style={styles.hint}>Need help or found a bug? Reach out and we can take a look.</Text>
+        <TfButton title="Contact support" variant="secondary" onPress={() => router.push('/support')} />
+        <Text style={styles.sectionLabel}>Account</Text>
         <TfButton title="Sign out" variant="secondary" onPress={() => void signOut()} />
       </ScrollView>
     </SafeAreaView>
@@ -63,6 +61,19 @@ const styles = StyleSheet.create({
     padding: TrustfallSpacing.xxl,
     paddingBottom: 100,
     gap: TrustfallSpacing.lg,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: TrustfallColors.muted,
+  },
+  hint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: TrustfallColors.secondary,
+    marginTop: -4,
   },
   body: { fontSize: 15, lineHeight: 22, color: TrustfallColors.muted },
 })

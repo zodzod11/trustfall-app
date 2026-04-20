@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient'
+import * as WebBrowser from 'expo-web-browser'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import {
@@ -15,7 +16,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TfButton } from '@/components/ui/TfButton'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
+import {
+  buildOAuthRedirectUrl,
+  parseOAuthCallbackTokens,
+  setSessionFromOAuthTokens,
+  signInWithOAuthGoogle,
+} from '@/lib/auth/googleOAuth'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+
+WebBrowser.maybeCompleteAuthSession()
 
 function reasonBanner(reason: string | undefined): string | null {
   if (reason === 'anonymous_disabled') {
@@ -29,6 +38,7 @@ function reasonBanner(reason: string | undefined): string | null {
 
 export default function SignUpScreen() {
   const { next: nextParam, reason } = useLocalSearchParams<{ next?: string; reason?: string }>()
+  const nextHref = typeof nextParam === 'string' && nextParam.startsWith('/') ? nextParam : '/'
   const nextForSignIn =
     typeof nextParam === 'string' && nextParam.startsWith('/') ? nextParam : '/onboarding'
   const banner = reasonBanner(reason)
@@ -57,6 +67,56 @@ export default function SignUpScreen() {
         return
       }
       router.replace('/')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onGoogleSignUp() {
+    setError(null)
+    if (!isSupabaseConfigured) {
+      setError('Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and key in your env.')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const redirectUrl = buildOAuthRedirectUrl('sign-up')
+      const { data, error: oauthErr } = await signInWithOAuthGoogle(redirectUrl)
+      if (oauthErr) {
+        setError(oauthErr.message)
+        return
+      }
+      if (!data?.url) {
+        setError('Google sign-in could not be started.')
+        return
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl)
+      if (result.type !== 'success' || !result.url) {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          setError('Google sign-in did not complete.')
+        }
+        return
+      }
+
+      const { accessToken, refreshToken, errorDescription } = parseOAuthCallbackTokens(result.url)
+      if (errorDescription) {
+        setError(errorDescription)
+        return
+      }
+      if (!accessToken || !refreshToken) {
+        setError('Google sign-in did not return a valid session.')
+        return
+      }
+
+      const { error: sessionErr } = await setSessionFromOAuthTokens(accessToken, refreshToken)
+      if (sessionErr) {
+        setError(sessionErr.message)
+        return
+      }
+
+      router.replace(nextHref as never)
     } finally {
       setBusy(false)
     }
@@ -115,7 +175,15 @@ export default function SignUpScreen() {
               {busy ? (
                 <ActivityIndicator color={TrustfallColors.primary} style={styles.spinner} />
               ) : (
-                <TfButton title="Sign up" onPress={() => void onSubmit()} />
+                <>
+                  <TfButton title="Continue with Google" onPress={() => void onGoogleSignUp()} />
+                  <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                  <TfButton title="Sign up with email" variant="secondary" onPress={() => void onSubmit()} />
+                </>
               )}
               <Pressable
                 onPress={() =>
@@ -187,5 +255,21 @@ const styles = StyleSheet.create({
   },
   error: { fontSize: 13, lineHeight: 18, color: '#f87171' },
   spinner: { paddingVertical: TrustfallSpacing.md },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TrustfallSpacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: TrustfallColors.border,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TrustfallColors.muted,
+    textTransform: 'uppercase',
+  },
   link: { fontSize: 14, color: TrustfallColors.primary, fontWeight: '600', textAlign: 'center' },
 })

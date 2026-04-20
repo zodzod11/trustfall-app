@@ -1,23 +1,27 @@
 import { Image } from 'expo-image'
-import { Link } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
+import { Link, router, useLocalSearchParams } from 'expo-router'
+import { useMemo, useState } from 'react'
 import {
+  ActivityIndicator,
   Linking,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RequestBookingModal } from '@/components/booking/RequestBookingModal'
+import { useMatchRunResults } from '@/hooks/useMatchRunResults'
 import { TfButton } from '@/components/ui/TfButton'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
 import { useMatchDraft } from '@/contexts/MatchDraftContext'
-import { rankProfessionals } from '@/features/matching/rankProfessionals'
 import { useSaved } from '@/hooks/useSaved'
-import { buildMatchRequestPrefillMessage } from '@/utils/matchRequestPrefill'
+import { formatDisplayLabel } from '@/lib/formatDisplayLabel'
+import { formatDateDisplay, formatTimeDisplay } from '@/lib/match/refinementFormat'
+import { toDialablePhoneNumber } from '@/lib/phone'
 import type { MatchResultsRankedProfessional } from '@/types'
 
 type RequestTarget = MatchResultsRankedProfessional & {
@@ -27,40 +31,83 @@ type RequestTarget = MatchResultsRankedProfessional & {
 }
 
 export default function MatchResultsScreen() {
-  const { draft } = useMatchDraft()
-  const request = draft ?? undefined
-  const [pending, setPending] = useState(true)
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions()
+  const params = useLocalSearchParams<{ request?: string | string[] }>()
+  const matchRequestId =
+    typeof params.request === 'string'
+      ? params.request
+      : Array.isArray(params.request)
+        ? params.request[0]
+        : undefined
+  const { draft, hydrated } = useMatchDraft()
+  const request = hydrated ? draft ?? undefined : undefined
+  const {
+    ranked,
+    status: matchRunStatus,
+    isPending,
+    errorMessage: matchRunError,
+  } = useMatchRunResults(matchRequestId)
+  const desiredTimePrefill = useMemo(() => {
+    if (!request) return ''
+    const dateLabel = formatDateDisplay(request.refinement.date)
+    const timeLabel = formatTimeDisplay(request.refinement.time)
+    const parts = [dateLabel, timeLabel].filter((value) => value && value !== '—')
+    return parts.join(' · ')
+  }, [request])
   const [activeTarget, setActiveTarget] = useState<RequestTarget | null>(null)
   const [piecePreview, setPiecePreview] = useState<{
     ranked: MatchResultsRankedProfessional
     portfolioItemId: string
   } | null>(null)
-  const { requestSubmissions, addRequestSubmission } = useSaved()
+  const { addRequestSubmission } = useSaved()
   const [selectedPieceByProId, setSelectedPieceByProId] = useState<Record<string, string>>({})
+  const missingRequest = !matchRequestId
 
-  const ranked = useMemo(() => rankProfessionals(request), [request])
+  const previewPiece = useMemo(() => {
+    if (!piecePreview) return null
+    return (
+      piecePreview.ranked.matchedPieces.find((p) => p.id === piecePreview.portfolioItemId) ??
+      piecePreview.ranked.matchedPieces[0] ??
+      null
+    )
+  }, [piecePreview])
 
-  useEffect(() => {
-    const t = setTimeout(() => setPending(false), 1200)
-    return () => clearTimeout(t)
-  }, [])
+  const modalCardInnerW = Math.min(windowWidth - TrustfallSpacing.lg * 2, 520) - TrustfallSpacing.lg * 2
+  const modalCompareGap = TrustfallSpacing.sm
+  const modalColW = Math.max(72, (modalCardInnerW - modalCompareGap) / 2)
+  /** Side-by-side pair in modal — same idea as Explore (no scroll between after/before). */
+  const modalPairHeight = Math.min(
+    Math.round(modalColW * 1.22),
+    Math.round(windowHeight * 0.32),
+    260,
+  )
+  const modalSingleImageHeight = Math.min(Math.round(windowHeight * 0.36), 320)
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.eyebrow}>Matches</Text>
         <Text style={styles.title}>
-          {pending ? 'Finding your matches…' : 'Results'}
+          {!hydrated ? 'Loading your request…' : isPending ? 'Finding your matches…' : 'Results'}
         </Text>
         <Text style={styles.desc}>
-          {pending
-            ? 'Comparing style tags, category, and location.'
+          {!hydrated
+            ? 'Restoring your last saved match request.'
+            : isPending
+            ? 'Comparing style tags, category, and location to rank the best fits.'
             : request
               ? 'Ranked from your request.'
-              : 'Sample ranking — submit a match request for personalized results.'}
+              : 'We could not find an active match request for this screen.'}
         </Text>
 
-        {pending && (
+        {!hydrated && (
+          <View style={styles.empty}>
+            <ActivityIndicator color={TrustfallColors.primary} />
+            <Text style={styles.emptyBody}>Loading your request from this device…</Text>
+          </View>
+        )}
+
+        {hydrated && isPending && (
           <View style={styles.skeletonStack}>
             {[1, 2, 3].map((i) => (
               <View key={i} style={styles.skeletonCard}>
@@ -75,17 +122,34 @@ export default function MatchResultsScreen() {
           </View>
         )}
 
-        {!pending && request && (
+        {hydrated && missingRequest ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No submitted request found</Text>
+            <Text style={styles.emptyBody}>
+              This screen needs a live match request. Start a new request to see personalized results.
+            </Text>
+            <TfButton title="Start match request" onPress={() => router.replace('/match')} />
+          </View>
+        ) : null}
+
+        {matchRunError && !isPending ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{matchRunError}</Text>
+            <TfButton title="Update request" onPress={() => router.replace('/match')} />
+          </View>
+        ) : null}
+
+        {!isPending && request && (
           <View style={styles.summary}>
             <Text style={styles.summaryEyebrow}>Request</Text>
             <Text style={styles.summaryText}>
-              {request.category || 'Any'} · {request.location || 'Any area'}
+              {request.category ? formatDisplayLabel(request.category) : 'Any'} · {request.location || 'Any area'}
             </Text>
             {request.tags.length > 0 ? (
               <View style={styles.tagRow}>
                 {request.tags.map((tag) => (
                   <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
+                    <Text style={styles.tagText}>{formatDisplayLabel(tag)}</Text>
                   </View>
                 ))}
               </View>
@@ -117,7 +181,9 @@ export default function MatchResultsScreen() {
           </View>
         )}
 
-        {!pending &&
+        {!isPending &&
+          !missingRequest &&
+          !matchRunError &&
           ranked.map((item, i) => {
             const selectedPieceId = selectedPieceByProId[item.id]
             const selectedPiece =
@@ -167,12 +233,16 @@ export default function MatchResultsScreen() {
                     <View style={styles.tagRow}>
                       {item.labels.map((l) => (
                         <View key={l} style={styles.tag}>
-                          <Text style={styles.tagText}>{l}</Text>
+                          <Text style={styles.tagText}>{formatDisplayLabel(l)}</Text>
                         </View>
                       ))}
                     </View>
                     {item.matchedPieces.length > 1 ? (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.pieceScroll}
+                      >
                         {item.matchedPieces.map((piece) => {
                           const active = piece.id === selectedPortfolioItemId
                           return (
@@ -189,10 +259,12 @@ export default function MatchResultsScreen() {
                         })}
                       </ScrollView>
                     ) : null}
-                    <View style={styles.ctaRow}>
+                    <View style={styles.ctaBlock}>
                       <TfButton
                         title="Request"
-                        style={styles.ctaBtn}
+                        titleNumberOfLines={1}
+                        style={{ ...styles.ctaBtnBase, ...styles.ctaBtnRequestFull }}
+                        textStyle={styles.ctaBtnLabelRequest}
                         onPress={() =>
                           setActiveTarget({
                             ...item,
@@ -203,18 +275,22 @@ export default function MatchResultsScreen() {
                           })
                         }
                       />
-                      <TfButton
-                        title="Call"
-                        variant="secondary"
-                        style={styles.ctaBtn}
-                        onPress={() => void Linking.openURL(`tel:${item.phoneNumber}`)}
-                      />
-                      <TfButton
-                        title="Text"
-                        variant="secondary"
-                        style={styles.ctaBtn}
-                        onPress={() => void Linking.openURL(`sms:${item.phoneNumber}`)}
-                      />
+                      <View style={styles.ctaRowSub}>
+                        <TfButton
+                          title="Call"
+                          variant="secondary"
+                          style={{ ...styles.ctaBtnBase, ...styles.ctaBtnContactHalf }}
+                          textStyle={styles.ctaBtnLabelContact}
+                          onPress={() => void Linking.openURL(`tel:${toDialablePhoneNumber(item.phoneNumber)}`)}
+                        />
+                        <TfButton
+                          title="Text"
+                          variant="secondary"
+                          style={{ ...styles.ctaBtnBase, ...styles.ctaBtnContactHalf }}
+                          textStyle={styles.ctaBtnLabelContact}
+                          onPress={() => void Linking.openURL(`sms:${toDialablePhoneNumber(item.phoneNumber)}`)}
+                        />
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -222,21 +298,22 @@ export default function MatchResultsScreen() {
             )
           })}
 
-        {!pending && ranked.length === 0 ? (
+        {!missingRequest &&
+        !isPending &&
+        !matchRunError &&
+        matchRunStatus === 'ready' &&
+        ranked.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No matches yet</Text>
+            <Text style={styles.emptyBody}>
+              Try widening your area, clearing a few style tags, or adjusting your inspiration notes.
+            </Text>
             <Link href="/match" asChild>
-              <Pressable>
+              <Pressable style={styles.emptyCta}>
                 <Text style={styles.link}>Update request</Text>
               </Pressable>
             </Link>
           </View>
-        ) : null}
-
-        {!pending && requestSubmissions.length > 0 ? (
-          <Text style={styles.footerNote}>
-            {requestSubmissions.length} request(s) saved on this device.
-          </Text>
         ) : null}
 
         <Link href="/match" asChild>
@@ -248,37 +325,87 @@ export default function MatchResultsScreen() {
 
       <Modal visible={piecePreview !== null} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setPiecePreview(null)}>
-          {piecePreview ? (
-            <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
-              <Text style={styles.modalTitle}>
-                {piecePreview.ranked.matchedPieces.find((p) => p.id === piecePreview.portfolioItemId)
-                  ?.serviceTitle ?? 'Portfolio'}
-              </Text>
-              <Image
-                source={{
-                  uri:
-                    piecePreview.ranked.matchedPieces.find((p) => p.id === piecePreview.portfolioItemId)
-                      ?.imageUrl ?? '',
-                }}
-                style={styles.modalImg}
-              />
-              <TfButton title="Close" variant="secondary" onPress={() => setPiecePreview(null)} />
-              <TfButton
-                title="Request this look"
-                onPress={() => {
-                  const r = piecePreview.ranked
-                  const pid = piecePreview.portfolioItemId
-                  const p = r.matchedPieces.find((x) => x.id === pid) ?? r.matchedPieces[0]
-                  setActiveTarget({
-                    ...r,
-                    portfolioItemId: p.id,
-                    portfolioImageUrl: p.imageUrl,
-                    serviceTitle: p.serviceTitle,
-                    scoreLabel: p.scoreLabel,
-                  })
-                  setPiecePreview(null)
-                }}
-              />
+          {piecePreview && previewPiece ? (
+            <View
+              style={[styles.modalCard, { maxHeight: windowHeight * 0.92 }]}
+              onStartShouldSetResponder={() => true}
+            >
+              <ScrollView
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                <Text style={styles.modalTitle}>{previewPiece.serviceTitle}</Text>
+                {previewPiece.beforeImageUrl ? (
+                  <View style={styles.modalCompareRow}>
+                    <View style={styles.modalCompareCol}>
+                      <Text style={styles.modalEyebrow}>Before</Text>
+                      <View style={[styles.modalImageViewport, { height: modalPairHeight }]}>
+                        <Image
+                          source={{ uri: previewPiece.beforeImageUrl }}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="contain"
+                          accessibilityLabel="Before, full image"
+                          transition={180}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.modalCompareCol}>
+                      <Text style={styles.modalEyebrow}>After</Text>
+                      <View style={[styles.modalImageViewport, { height: modalPairHeight }]}>
+                        <Image
+                          source={{ uri: previewPiece.imageUrl }}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="contain"
+                          accessibilityLabel="After, full image"
+                          transition={180}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.modalEyebrow}>Portfolio</Text>
+                    <View style={[styles.modalImageViewport, { height: modalSingleImageHeight }]}>
+                      <Image
+                        source={{ uri: previewPiece.imageUrl }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="contain"
+                        accessibilityLabel="Portfolio image"
+                        transition={180}
+                      />
+                    </View>
+                  </>
+                )}
+                <TfButton
+                  title="Open full portfolio"
+                  variant="secondary"
+                  onPress={() => {
+                    const id = piecePreview.portfolioItemId
+                    setPiecePreview(null)
+                    router.push(`/explore/${id}`)
+                  }}
+                />
+                <TfButton title="Close" variant="secondary" onPress={() => setPiecePreview(null)} />
+                <TfButton
+                  title="Request this look"
+                  textStyle={styles.modalPrimaryBtnLabel}
+                  onPress={() => {
+                    const r = piecePreview.ranked
+                    const pid = piecePreview.portfolioItemId
+                    const p = r.matchedPieces.find((x) => x.id === pid) ?? r.matchedPieces[0]
+                    setActiveTarget({
+                      ...r,
+                      portfolioItemId: p.id,
+                      portfolioImageUrl: p.imageUrl,
+                      serviceTitle: p.serviceTitle,
+                      scoreLabel: p.scoreLabel,
+                    })
+                    setPiecePreview(null)
+                  }}
+                />
+              </ScrollView>
             </View>
           ) : null}
         </Pressable>
@@ -292,10 +419,13 @@ export default function MatchResultsScreen() {
           portfolioItemId={activeTarget.portfolioItemId}
           portfolioImageUrl={activeTarget.portfolioImageUrl}
           serviceTitle={activeTarget.serviceTitle}
+          categorySnapshot={request?.category}
           proName={activeTarget.name}
           phoneNumber={activeTarget.phoneNumber}
           proEmail={activeTarget.proEmail}
-          initialMessage={buildMatchRequestPrefillMessage(request)}
+          requestType="match"
+          matchRequestId={matchRequestId}
+          initialPreferredDate={desiredTimePrefill}
           initialInspirationName={request?.imageName ?? ''}
           initialCurrentPhotoName={request?.currentPhotoName ?? ''}
           initialInspirationUri={request?.inspirationUri}
@@ -319,6 +449,15 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 28, fontWeight: '700', color: TrustfallColors.foreground },
   desc: { fontSize: 14, color: TrustfallColors.muted, lineHeight: 20 },
+  errorCard: {
+    gap: TrustfallSpacing.md,
+    padding: TrustfallSpacing.lg,
+    borderRadius: TrustfallRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  errorText: { fontSize: 13, lineHeight: 20, color: TrustfallColors.foreground },
   skeletonStack: { gap: TrustfallSpacing.md },
   skeletonCard: {
     flexDirection: 'row',
@@ -378,7 +517,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: TrustfallSpacing.sm,
     paddingVertical: 4,
   },
-  tagText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: TrustfallColors.foreground },
+  tagText: { fontSize: 10, fontWeight: '700', color: TrustfallColors.foreground },
   card: {
     borderRadius: TrustfallRadius.lg,
     borderWidth: 1,
@@ -401,7 +540,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rankText: { fontSize: 12, fontWeight: '700', color: TrustfallColors.accent },
-  cardBody: { flex: 1, minWidth: 0, gap: 4 },
+  cardBody: { flex: 1, minWidth: 0, alignSelf: 'stretch', gap: 4 },
   nameRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' },
   proName: { fontSize: 17, fontWeight: '700', color: TrustfallColors.foreground, flex: 1 },
   score: { fontSize: 11, fontWeight: '800', color: TrustfallColors.accent, textTransform: 'uppercase' },
@@ -420,10 +559,53 @@ const styles = StyleSheet.create({
   },
   pieceThumbOn: { borderColor: TrustfallColors.primary, borderWidth: 2 },
   pieceImg: { width: '100%', height: '100%' },
-  ctaRow: { flexDirection: 'row', gap: TrustfallSpacing.sm, marginTop: TrustfallSpacing.sm },
-  ctaBtn: { flex: 1, minWidth: 0 },
+  pieceScroll: {
+    maxWidth: '100%',
+    flexGrow: 0,
+  },
+  /** Full-width Request + Call/Text row — narrow card column can’t fit three inline CTAs without truncating. */
+  ctaBlock: {
+    alignSelf: 'stretch',
+    width: '100%',
+    gap: TrustfallSpacing.sm,
+    marginTop: TrustfallSpacing.sm,
+  },
+  ctaRowSub: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    gap: TrustfallSpacing.xs,
+    alignItems: 'stretch',
+  },
+  ctaBtnBase: {
+    paddingVertical: TrustfallSpacing.sm,
+    justifyContent: 'center',
+  },
+  ctaBtnRequestFull: {
+    alignSelf: 'stretch',
+    width: '100%',
+    minHeight: 50,
+    paddingHorizontal: TrustfallSpacing.lg,
+  },
+  ctaBtnContactHalf: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    paddingHorizontal: TrustfallSpacing.sm,
+  },
+  ctaBtnLabelRequest: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.1,
+  },
+  ctaBtnLabelContact: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.25,
+  },
   empty: { padding: TrustfallSpacing.xxl, alignItems: 'center', gap: TrustfallSpacing.md },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: TrustfallColors.foreground },
+  emptyBody: { fontSize: 14, color: TrustfallColors.muted, textAlign: 'center' },
+  emptyCta: { paddingVertical: TrustfallSpacing.xs },
   footerNote: { textAlign: 'center', fontSize: 12, color: TrustfallColors.muted },
   backLink: { alignItems: 'center', paddingBottom: 24 },
   modalBackdrop: {
@@ -433,13 +615,38 @@ const styles = StyleSheet.create({
     padding: TrustfallSpacing.lg,
   },
   modalCard: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     backgroundColor: TrustfallColors.surface,
     borderRadius: TrustfallRadius.xl,
     padding: TrustfallSpacing.lg,
-    gap: TrustfallSpacing.md,
     borderWidth: 1,
     borderColor: TrustfallColors.border,
   },
+  modalScrollContent: {
+    gap: TrustfallSpacing.md,
+    paddingBottom: TrustfallSpacing.sm,
+  },
   modalTitle: { fontSize: 18, fontWeight: '700', color: TrustfallColors.foreground },
-  modalImg: { width: '100%', aspectRatio: 3 / 4, borderRadius: TrustfallRadius.lg },
+  modalCompareRow: {
+    flexDirection: 'row',
+    gap: TrustfallSpacing.sm,
+    alignItems: 'flex-start',
+  },
+  modalCompareCol: { flex: 1, minWidth: 0, gap: TrustfallSpacing.xs },
+  modalEyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: TrustfallColors.muted,
+  },
+  modalImageViewport: {
+    width: '100%',
+    borderRadius: TrustfallRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: '#080c18',
+  },
+  modalPrimaryBtnLabel: { fontSize: 16, fontWeight: '800' },
 })

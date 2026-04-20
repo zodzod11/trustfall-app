@@ -28,11 +28,20 @@
     },
     "plugins": [
       "expo-router",
+      "expo-font",
+      "expo-image",
+      "expo-web-browser",
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow Trustfall to attach inspiration photos to your requests.",
           "cameraPermission": "Allow Trustfall to capture your current look for matching."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Trustfall uses your location to suggest pros near you and improve match quality."
         }
       ],
       [

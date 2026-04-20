@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { EXPLORE_PAGE_SIZE, PORTFOLIO_EXPLORE_SELECT } from './constants'
+import {
+  EXPLORE_PAGE_SIZE,
+  LEGACY_PORTFOLIO_EXPLORE_SELECT,
+  PORTFOLIO_EXPLORE_SELECT,
+} from './constants'
 import { mapPortfolioRowToFeedItem } from './mapRowToFeedItem'
 import type { PortfolioFeedItem } from '../../components/explore/PortfolioCard'
 import type { PortfolioExploreDbRow } from './types'
@@ -7,6 +11,10 @@ import type { PortfolioExploreDbRow } from './types'
 export type ExplorePortfolioFetchResult = {
   items: PortfolioFeedItem[]
   error: string | null
+}
+
+function isMissingRequestCountError(error: { message?: string; code?: string } | null) {
+  return error?.code === '42703' && /request_count/i.test(error.message ?? '')
 }
 
 /**
@@ -20,13 +28,25 @@ export async function fetchPublishedPortfolioItems(
   let from = 0
 
   for (;;) {
-    const { data, error } = await supabase
+    let query = await supabase
       .from('portfolio_items')
       .select(PORTFOLIO_EXPLORE_SELECT)
       .eq('published', true)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true })
       .range(from, from + EXPLORE_PAGE_SIZE - 1)
+
+    if (query.error && isMissingRequestCountError(query.error)) {
+      query = await supabase
+        .from('portfolio_items')
+        .select(LEGACY_PORTFOLIO_EXPLORE_SELECT)
+        .eq('published', true)
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + EXPLORE_PAGE_SIZE - 1)
+    }
+
+    const { data, error } = query
 
     if (error) {
       return { items: [], error: error.message }

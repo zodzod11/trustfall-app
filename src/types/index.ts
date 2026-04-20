@@ -13,7 +13,7 @@ export type MatchResultItem = {
   blurb: string
 }
 
-export type ServiceCategory = 'barber' | 'hair' | 'nails' | 'makeup'
+export type ServiceCategory = 'hair' | 'nails' | 'makeup' | 'tattoo'
 
 export type User = {
   id: string
@@ -37,6 +37,8 @@ export type PortfolioItem = {
   serviceTitle: string
   tags: string[]
   category: ServiceCategory
+  /** Piece-specific copy; shown on portfolio detail when set. */
+  description?: string
 }
 
 export type Professional = {
@@ -47,6 +49,7 @@ export type Professional = {
   city: string
   rating: number
   reviewCount: number
+  requestCount: number
   yearsExperience: number
   about: string
   /** Mock / placeholder contact for Call, Text, and notifications (E.164 when possible). */
@@ -109,6 +112,7 @@ export type MatchRequestDraft = {
 export type MatchResultsMatchedPiece = {
   id: string
   imageUrl: string
+  beforeImageUrl?: string
   serviceTitle: string
   scoreLabel: string
 }

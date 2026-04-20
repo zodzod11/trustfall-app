@@ -1,10 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient'
+import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,10 +19,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TfButton } from '@/components/ui/TfButton'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
+import { searchLocationsCatalog } from '@/data/locationsCatalog'
 import { applyOnboardingCredentials } from '../../src/lib/auth/applyOnboardingCredentials'
 import { ensureAuthSession } from '@/lib/ensureAuthSession'
+import { formatDisplayLabel } from '@/lib/formatDisplayLabel'
+import { getMatchLocationFromDevice } from '@/lib/match/getDeviceLocation'
+import { formatPhoneNumber } from '@/lib/phone'
+import { fetchProfileScreenModel, profileInitials } from '@/lib/profileScreenData'
 import { onboardingApi } from '@/lib/onboarding'
 import { supabase } from '@/lib/supabase'
+import { avatarPath, uploadAvatar } from '@/lib/trustfallStorage'
 import type { ServiceCategory } from '@/types'
 import {
   canProceedFromStep,
@@ -55,6 +64,10 @@ export default function OnboardingScreen() {
   } = useOnboardingFlow(onboardingApi, { prepareHydration })
 
   const [syncHint, setSyncHint] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null)
+  const [avatarFilename, setAvatarFilename] = useState<string>('')
+  const [avatarSaving, setAvatarSaving] = useState(false)
 
   const { stepIndex, draft, hydration, persist } = model
   const form = draft
@@ -62,6 +75,7 @@ export default function OnboardingScreen() {
   const isLastStep = stepIndex === totalSteps - 1
   const progressValue = ((stepIndex + 1) / totalSteps) * 100
   const personalizedName = form.firstName.trim() || 'there'
+  const onboardingReady = hydration.phase === 'ready'
 
   useEffect(() => {
     if (shouldSkip) {
@@ -69,7 +83,18 @@ export default function OnboardingScreen() {
     }
   }, [shouldSkip])
 
-  const onboardingReady = hydration.phase === 'ready'
+  useEffect(() => {
+    if (!onboardingReady) return
+    let cancelled = false
+    void (async () => {
+      const me = await fetchProfileScreenModel()
+      if (cancelled || !me?.avatarDisplayUrl) return
+      setAvatarPreviewUri((current) => current ?? me.avatarDisplayUrl)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [onboardingReady])
 
   const redirectingEmailAuth =
     hydration.phase === 'error' && isNeedsEmailAuthSessionError(hydration.message)
@@ -85,6 +110,8 @@ export default function OnboardingScreen() {
     if (persist.phase === 'saving') return false
     return canProceedFromStep(stepIndex, form)
   }, [form, stepIndex, persist.phase, onboardingReady])
+
+  const locationSuggestions = useMemo(() => searchLocationsCatalog(form.location), [form.location])
 
   function toggleCategory(category: ServiceCategory) {
     patchDraft({
@@ -102,13 +129,152 @@ export default function OnboardingScreen() {
     })
   }
 
-  async function pickInspiration() {
+  function avatarExtension(mimeType: string | null | undefined, filename: string) {
+    const lower = filename.toLowerCase()
+    if (mimeType === 'image/png' || lower.endsWith('.png')) return 'png'
+    if (mimeType === 'image/webp' || lower.endsWith('.webp')) return 'webp'
+    return 'jpg'
+  }
+
+  function applyAvatarAsset(asset: ImagePicker.ImagePickerAsset) {
+    const filename = asset.fileName?.trim() || 'profile.jpg'
+    setAvatarPreviewUri(asset.uri)
+    setAvatarFilename(filename)
+    patchDraft({ inspirationFileName: filename })
+  }
+
+  async function pickProfilePhoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!perm.granted) return
+    if (!perm.granted) {
+      Alert.alert(
+        'Photos',
+        'Allow photo library access to choose a profile picture.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+        ],
+      )
+      return
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 })
     if (result.canceled || !result.assets[0]) return
-    const name = result.assets[0].fileName ?? 'inspiration.jpg'
-    patchDraft({ inspirationFileName: name })
+    applyAvatarAsset(result.assets[0])
+  }
+
+  async function takeProfilePhoto() {
+    try {
+      const cam = await ImagePicker.requestCameraPermissionsAsync()
+      if (!cam.granted) {
+        Alert.alert(
+          'Camera access needed',
+          'Enable camera access to take a profile picture.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            { text: 'Choose from library', onPress: () => void pickProfilePhoto() },
+          ],
+        )
+        return
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
+      if (result.canceled || !result.assets[0]) return
+      applyAvatarAsset(result.assets[0])
+    } catch {
+      Alert.alert(
+        "Can't use camera here",
+        'Simulators and some devices cannot open the camera. Choose a photo from your library instead.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Choose from library', onPress: () => void pickProfilePhoto() },
+        ],
+      )
+    }
+  }
+
+  async function syncProfileAvatarIfNeeded() {
+    if (!avatarPreviewUri || avatarPreviewUri.startsWith('http')) return true
+    setAvatarSaving(true)
+    try {
+      const { data: authData, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !authData.user) {
+        setSyncHint('Sign in to save your profile picture.')
+        return false
+      }
+      const uid = authData.user.id
+      const ext = avatarExtension(undefined, avatarFilename || form.inspirationFileName || 'profile.jpg')
+      const filename = `avatar-${Date.now()}.${ext}`
+      const { error: uploadErr } = await uploadAvatar(uid, { uri: avatarPreviewUri }, {
+        contentType: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
+        upsert: true,
+        filename,
+      })
+      if (uploadErr) {
+        setSyncHint(uploadErr.message)
+        return false
+      }
+
+      const storagePath = avatarPath(uid, filename)
+      const { error: dbErr } = await supabase.from('profiles').upsert({
+        id: uid,
+        account_type: 'client',
+        display_name: form.firstName.trim() || null,
+        avatar_url: storagePath,
+      })
+      if (dbErr) {
+        setSyncHint(dbErr.message)
+        return false
+      }
+
+      return true
+    } finally {
+      setAvatarSaving(false)
+    }
+  }
+
+  function formatLocationLabel(input: { city: string; state?: string; zip?: string }) {
+    return [input.city, input.state].filter(Boolean).join(', ') + (input.zip ? ` ${input.zip}` : '')
+  }
+
+  async function useCurrentLocation() {
+    setLocating(true)
+    try {
+      const result = await getMatchLocationFromDevice()
+      if (!result.ok) {
+        if (result.reason === 'denied') {
+          Alert.alert(
+            'Location unavailable',
+            'Allow location access to use your current location, or search by city or zip instead.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            ],
+          )
+        } else {
+          Alert.alert(
+            'Location unavailable',
+            'Current location is not available right now. Search by city or zip instead.',
+          )
+        }
+        return
+      }
+
+      patchDraft({
+        location: formatLocationLabel(result.location),
+      })
+    } catch {
+      Alert.alert(
+        'Location unavailable',
+        'Current location is not available right now. Search by city or zip instead.',
+      )
+    } finally {
+      setLocating(false)
+    }
+  }
+
+  function pickCatalogLocation(input: { city: string; state: string; zip: string }) {
+    patchDraft({
+      location: formatLocationLabel(input),
+    })
   }
 
   async function handleContinue() {
@@ -124,6 +290,10 @@ export default function OnboardingScreen() {
     if (session.error) {
       if (hydration.phase !== 'error') setSyncHint(session.error)
       return
+    }
+    if (stepIndex === 2) {
+      const avatarOk = await syncProfileAvatarIfNeeded()
+      if (!avatarOk) return
     }
     if (stepIndex === 5) {
       const cred = await applyOnboardingCredentials(supabase, form.email, form.password)
@@ -301,10 +471,9 @@ export default function OnboardingScreen() {
 
             {stepIndex === 2 && (
               <>
-                <Text style={styles.h1}>What style are you into?</Text>
+                <Text style={styles.h1}>Style tags and profile photo</Text>
                 <Text style={styles.body}>
-                  Pick tags and optionally note inspiration (label only — upload photos in Get
-                  Matched).
+                  Pick a few style tags and add a profile picture so your account is ready to go.
                 </Text>
                 <View style={styles.tagWrap}>
                   {ONBOARDING_STYLE_TAG_OPTIONS.map((tag) => {
@@ -315,29 +484,79 @@ export default function OnboardingScreen() {
                         onPress={() => toggleStyleTag(tag)}
                         style={[styles.tag, active && styles.tagOn]}
                       >
-                        <Text style={[styles.tagText, active && styles.tagTextOn]}>{tag}</Text>
+                        <Text style={[styles.tagText, active && styles.tagTextOn]}>{formatDisplayLabel(tag)}</Text>
                       </Pressable>
                     )
                   })}
                 </View>
-                <TfButton title="Choose inspiration reference" variant="secondary" onPress={pickInspiration} />
+                <Text style={styles.fieldLabel}>Profile picture</Text>
+                <View style={styles.avatarStepRow}>
+                  <View style={styles.avatarStepBubble}>
+                    {avatarPreviewUri ? (
+                      <Image source={{ uri: avatarPreviewUri }} style={styles.avatarStepImage} contentFit="cover" />
+                    ) : (
+                      <Text style={styles.avatarStepText}>{profileInitials(form.firstName || personalizedName)}</Text>
+                    )}
+                    {avatarSaving ? (
+                      <View style={styles.avatarStepOverlay}>
+                        <ActivityIndicator color={TrustfallColors.primaryForeground} />
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.avatarStepActions}>
+                    <TfButton title="Choose photo" variant="secondary" onPress={() => void pickProfilePhoto()} />
+                    <TfButton title="Take photo" variant="secondary" onPress={() => void takeProfilePhoto()} />
+                  </View>
+                </View>
                 {form.inspirationFileName ? (
-                  <Text style={styles.hint}>Reference: {form.inspirationFileName}</Text>
-                ) : null}
+                  <Text style={styles.hint}>Selected: {form.inspirationFileName}</Text>
+                ) : (
+                  <Text style={styles.hint}>Optional, but recommended.</Text>
+                )}
               </>
             )}
 
             {stepIndex === 3 && (
               <>
                 <Text style={styles.h1}>Where should we search?</Text>
-                <Text style={styles.body}>City or neighborhood works best.</Text>
+                <Text style={styles.body}>Use the same city and zip lookup as Match, or use your current location.</Text>
+                <Pressable
+                  onPress={() => void useCurrentLocation()}
+                  disabled={locating}
+                  style={[styles.locationHero, locating && styles.locationHeroDim]}
+                >
+                  {locating ? (
+                    <ActivityIndicator color={TrustfallColors.primaryForeground} />
+                  ) : (
+                    <Text style={styles.locationHeroText}>Use current location</Text>
+                  )}
+                  <Text style={styles.locationHeroHint}>Uses GPS, then fills city / state / zip.</Text>
+                </Pressable>
+                <Text style={styles.fieldLabel}>Search by city or zip</Text>
                 <TextInput
                   value={form.location}
                   onChangeText={(t) => patchDraft({ location: t })}
-                  placeholder="Houston, Austin, Dallas..."
+                  placeholder="Houston or 77002"
                   placeholderTextColor={TrustfallColors.muted}
                   style={styles.input}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
+                {locationSuggestions.length > 0 ? (
+                  <View style={styles.suggestList}>
+                    {locationSuggestions.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => pickCatalogLocation(item)}
+                        style={styles.suggestRow}
+                      >
+                        <Text style={styles.suggestTitle}>
+                          {item.city}, {item.state} {item.zip}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </>
             )}
 
@@ -361,14 +580,14 @@ export default function OnboardingScreen() {
                 <Text style={styles.fieldLabel}>Phone</Text>
                 <TextInput
                   value={form.phone}
-                  onChangeText={(t) => patchDraft({ phone: t })}
+                  onChangeText={(t) => patchDraft({ phone: formatPhoneNumber(t) })}
                   placeholder="Mobile number"
                   placeholderTextColor={TrustfallColors.muted}
                   style={styles.input}
                   autoComplete="tel"
                   keyboardType="phone-pad"
                 />
-                <Text style={styles.body}>Preferred first contact</Text>
+                <Text style={styles.body}>Preferred Contact Method</Text>
                 {(['text', 'call', 'email'] as ContactPreference[]).map((pref) => {
                   const active = form.contactPreference === pref
                   return (
@@ -409,7 +628,7 @@ export default function OnboardingScreen() {
               <>
                 <Text style={styles.h1}>You&apos;re set, {personalizedName}</Text>
                 <Text style={styles.body}>
-                  We&apos;ll prioritize {form.categories.join(', ')} looks near {form.location}.
+                  We&apos;ll prioritize {form.categories.map(formatDisplayLabel).join(', ')} looks near {form.location}.
                 </Text>
                 <View style={styles.summary}>
                   <Text style={styles.summaryLabel}>Email</Text>
@@ -417,12 +636,12 @@ export default function OnboardingScreen() {
                 </View>
                 <View style={styles.summary}>
                   <Text style={styles.summaryLabel}>Phone</Text>
-                  <Text style={styles.summaryValue}>{form.phone.trim() || '—'}</Text>
+                  <Text style={styles.summaryValue}>{formatPhoneNumber(form.phone) || '—'}</Text>
                 </View>
                 <View style={styles.summary}>
                   <Text style={styles.summaryLabel}>Style tags</Text>
                   <Text style={styles.summaryValue}>
-                    {form.styleTags.length ? form.styleTags.join(', ') : 'None'}
+                    {form.styleTags.length ? form.styleTags.map(formatDisplayLabel).join(', ') : 'None'}
                   </Text>
                 </View>
                 <TfButton
@@ -547,6 +766,43 @@ const styles = StyleSheet.create({
     color: TrustfallColors.foreground,
     backgroundColor: TrustfallColors.background,
   },
+  locationHero: {
+    borderRadius: TrustfallRadius.lg,
+    padding: TrustfallSpacing.lg,
+    gap: TrustfallSpacing.xs,
+    backgroundColor: TrustfallColors.primary,
+  },
+  locationHeroDim: {
+    opacity: 0.72,
+  },
+  locationHeroText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: TrustfallColors.primaryForeground,
+  },
+  locationHeroHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: TrustfallColors.primaryForeground,
+    opacity: 0.9,
+  },
+  suggestList: {
+    borderWidth: 1,
+    borderColor: TrustfallColors.border,
+    borderRadius: TrustfallRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: TrustfallColors.background,
+  },
+  suggestRow: {
+    paddingVertical: TrustfallSpacing.md,
+    paddingHorizontal: TrustfallSpacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: TrustfallColors.border,
+  },
+  suggestTitle: {
+    fontSize: 14,
+    color: TrustfallColors.foreground,
+  },
   grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: TrustfallSpacing.md },
   chipLg: {
     width: '47%',
@@ -576,6 +832,39 @@ const styles = StyleSheet.create({
   tagText: { fontSize: 12, fontWeight: '600', color: TrustfallColors.muted, textTransform: 'capitalize' },
   tagTextOn: { color: TrustfallColors.foreground },
   hint: { fontSize: 12, color: TrustfallColors.secondary },
+  avatarStepRow: {
+    flexDirection: 'row',
+    gap: TrustfallSpacing.lg,
+    alignItems: 'center',
+  },
+  avatarStepBubble: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: TrustfallColors.primary,
+  },
+  avatarStepImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarStepText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: TrustfallColors.primaryForeground,
+  },
+  avatarStepOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  avatarStepActions: {
+    flex: 1,
+    gap: TrustfallSpacing.sm,
+  },
   prefRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

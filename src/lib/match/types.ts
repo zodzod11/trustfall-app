@@ -16,6 +16,19 @@ export type MatchImagePaths = {
   current_photo_path: string | null
 }
 
+export type MatchImageSource =
+  | File
+  | {
+      bytes: ArrayBuffer
+      filename?: string
+      contentType?: string
+    }
+  | {
+      uri: string
+      filename?: string
+      contentType?: string
+    }
+
 export type MatchResultRowRecord = {
   id: string
   match_result_id: string

@@ -52,10 +52,15 @@ export function mapMatchRowsToRankedProfessionals(
 
     const matchedPieces = group.map((p) => {
       const ppi = p.portfolio_items
-      const url = portfolioImagePublicUrl(ppi.after_image_path ?? ppi.before_image_path)
+      const afterPath = ppi.after_image_path ?? ppi.before_image_path
+      const beforePath = ppi.before_image_path
+      const url = portfolioImagePublicUrl(afterPath)
+      const beforeOnly =
+        beforePath && beforePath !== afterPath ? portfolioImagePublicUrl(beforePath) : ''
       return {
         id: p.portfolio_item_id,
         imageUrl: url || '',
+        beforeImageUrl: beforeOnly || undefined,
         serviceTitle: ppi.service_title,
         scoreLabel: `${Math.round(numScore(p.total_score))}% fit`,
       }

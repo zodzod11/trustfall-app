@@ -45,6 +45,7 @@ export type {
   ProfessionalRow,
   ProfileRow,
   SavedPortfolioRow,
+  SavedProfessionalRow,
   UserPreferencesRow,
 } from './rows'
 
@@ -58,6 +59,7 @@ export type {
   ProfessionalInsert,
   ProfileInsert,
   SavedPortfolioInsert,
+  SavedProfessionalInsert,
   UserPreferencesInsert,
 } from './inserts'
 

@@ -1,18 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { createClient } from '../lib/client'
-import { usersSeed } from '../data/seed'
+import { useRequestHistory } from '../hooks/useRequestHistory'
 import { useSaved } from '../hooks/useSaved'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
+import { fetchViewerAccountSummary, profileInitials } from '../lib/viewerAccount'
 import { cn } from '../utils/cn'
 
 export function ProfilePage() {
   const navigate = useNavigate()
-  const user = usersSeed[0]
-  const { savedPortfolioItemIds, savedProfessionalIds, requestSubmissions } = useSaved()
-  const recentRequests = requestSubmissions.slice(0, 4)
+  const { savedPortfolioItemIds, savedProfessionalIds } = useSaved()
+  const requestClient = useMemo(() => createClient(), [])
+  const { items: requestHistory, loading: requestsLoading } = useRequestHistory(requestClient, {
+    limit: 100,
+  })
+  const recentRequests = requestHistory.slice(0, 4)
+  const profileName = viewer === undefined ? 'Loading profile…' : viewer?.displayName ?? 'You'
+  const profileBudget =
+    viewer?.budgetLabel ? `Budget range: ${viewer.budgetLabel}` : 'Budget range not set yet.'
 
   const [menuOpen, setMenuOpen] = useState(false)
+  const [viewer, setViewer] = useState<Awaited<ReturnType<typeof fetchViewerAccountSummary>>>(undefined)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,6 +34,19 @@ export function ProfilePage() {
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [menuOpen])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const next = await fetchViewerAccountSummary(requestClient)
+      if (!cancelled) {
+        setViewer(next)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [requestClient])
 
   async function handleSignOut() {
     setMenuOpen(false)
@@ -109,15 +131,14 @@ export function ProfilePage() {
 
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-lg font-semibold text-primary-foreground">
-          {user.firstName[0]}
-          {user.lastName[0]}
+          {profileInitials(viewer?.displayName ?? '')}
         </div>
         <div>
           <p className="text-lg font-semibold text-foreground">
-            {user.firstName} {user.lastName}
+            {profileName}
           </p>
-          <p className="text-sm text-muted">{user.email}</p>
-          <p className="text-xs text-muted">{user.city}</p>
+          {viewer?.email ? <p className="text-sm text-muted">{viewer.email}</p> : null}
+          {viewer?.city ? <p className="text-xs text-muted">{viewer.city}</p> : null}
         </div>
       </div>
 
@@ -133,7 +154,7 @@ export function ProfilePage() {
           },
           {
             label: 'Requests',
-            value: requestSubmissions.length.toString(),
+            value: requestHistory.length.toString(),
           },
         ].map((stat) => (
           <div
@@ -153,18 +174,22 @@ export function ProfilePage() {
           Preferences
         </h2>
         <div className="tf-card space-y-3 p-4">
-          <div className="flex flex-wrap gap-2">
-            {user.preferredCategories.map((category) => (
-              <span
-                key={category}
-                className="tf-tag px-2.5 py-1 text-[10px] uppercase tracking-wide"
-              >
-                {category}
-              </span>
-            ))}
-          </div>
+          {viewer?.preferredCategories.length ? (
+            <div className="flex flex-wrap gap-2">
+              {viewer.preferredCategories.map((category) => (
+                <span
+                  key={category}
+                  className="tf-tag px-2.5 py-1 text-[10px] tracking-wide"
+                >
+                  {formatDisplayLabel(category)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-secondary">No onboarding preferences saved yet.</p>
+          )}
           <p className="text-sm text-secondary">
-            Budget range: ${user.budgetMin} - ${user.budgetMax}
+            {profileBudget}
           </p>
         </div>
       </section>
@@ -173,33 +198,37 @@ export function ProfilePage() {
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
           Recent Requests
         </h2>
-        {recentRequests.length > 0 ? (
+        {requestsLoading ? (
+          <div className="tf-card p-4 text-sm text-muted">Loading your requests...</div>
+        ) : recentRequests.length > 0 ? (
           <ul className="space-y-2.5">
             {recentRequests.map((request) => (
               <li
-                key={request.createdAt + request.portfolioItemId}
+                key={request.id}
                 className="tf-card flex gap-3 overflow-hidden p-4"
               >
-                {request.portfolioImageUrl ? (
+                {request.portfolio_image_url_snapshot ? (
                   <div className="h-16 w-14 shrink-0 overflow-hidden rounded-lg border border-border">
                     <img
-                      src={request.portfolioImageUrl}
+                      src={request.portfolio_image_url_snapshot}
                       alt=""
                       className="h-full w-full object-cover"
                     />
                   </div>
                 ) : null}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-secondary">{request.proName}</p>
-                  {(request.clientName || request.clientEmail) ? (
+                  <p className="text-sm font-medium text-secondary">
+                    {request.provider_name_snapshot || 'Professional'}
+                  </p>
+                  {(request.client_name || request.client_email) ? (
                     <p className="mt-0.5 text-[11px] text-muted">
-                      {[request.clientName, request.clientEmail].filter(Boolean).join(' · ')}
+                      {[request.client_name, request.client_email].filter(Boolean).join(' · ')}
                     </p>
                   ) : null}
                   <p className="mt-1 text-xs text-muted line-clamp-2">{request.message}</p>
                   <p className="mt-2 text-[11px] text-muted">
-                    {request.preferredDate
-                      ? `Preferred date: ${request.preferredDate}`
+                    {request.preferred_date_text
+                      ? `Preferred date: ${request.preferred_date_text}`
                       : 'No preferred date'}
                   </p>
                 </div>

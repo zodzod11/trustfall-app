@@ -1,4 +1,5 @@
 import type { OnboardingPayload } from '../services/onboarding/types'
+import { formatPhoneNumber } from '../lib/phone'
 import type { OnboardingFormValues } from './types'
 
 /**
@@ -13,7 +14,7 @@ export function draftToOnboardingPayload(draft: OnboardingFormValues): Onboardin
     inspirationFileName: draft.inspirationFileName.trim() || null,
     location: draft.location.trim() || undefined,
     contactPreference: draft.contactPreference,
-    phone: draft.phone.trim() || undefined,
+    phone: formatPhoneNumber(draft.phone) || undefined,
     email: draft.email.trim() || undefined,
   }
 }

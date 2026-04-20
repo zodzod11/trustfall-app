@@ -38,6 +38,10 @@ const notifyApiUrl =
   env.EXPO_PUBLIC_NOTIFY_API_URL ||
   env.VITE_NOTIFY_API_URL ||
   'http://localhost:8787/api/notify-request'
+const matchEngineUrl =
+  env.EXPO_PUBLIC_MATCH_ENGINE_URL ||
+  env.VITE_MATCH_ENGINE_URL ||
+  'http://localhost:8788/api/match-run'
 
 const appJson = require('./app.json')
 
@@ -49,6 +53,7 @@ module.exports = {
       supabaseUrl: supabaseUrl || undefined,
       supabaseKey: supabaseKey || undefined,
       notifyApiUrl: notifyApiUrl || undefined,
+      matchEngineUrl: matchEngineUrl || undefined,
     },
   },
 }

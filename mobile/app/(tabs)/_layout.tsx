@@ -2,16 +2,21 @@ import { Tabs } from 'expo-router'
 import React from 'react'
 import { HapticTab } from '@/components/haptic-tab'
 import { TrustfallTabBar } from '@/components/layout/TrustfallTabBar'
+import { LiquidGlassTabButton } from '@/components/navigation/LiquidGlassTabButton'
 import { IconSymbol } from '@/components/ui/icon-symbol'
 import { TrustfallColors } from '@/constants/trustfall-theme'
+import { useNavigationGlass } from '@/contexts/NavigationGlassContext'
 
 export default function TabLayout() {
+  const { variant } = useNavigationGlass()
+
   return (
     <Tabs
       tabBar={(props) => <TrustfallTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: TrustfallColors.primary,
-        tabBarInactiveTintColor: 'rgba(196, 197, 217, 0.5)',
+        tabBarActiveTintColor: variant === 'strong' ? '#7c9cf5' : TrustfallColors.primary,
+        tabBarInactiveTintColor:
+          variant === 'strong' ? 'rgba(196, 197, 217, 0.42)' : 'rgba(196, 197, 217, 0.5)',
         headerShown: false,
         tabBarShowLabel: true,
         tabBarLabelStyle: {
@@ -21,7 +26,7 @@ export default function TabLayout() {
           marginTop: 0,
         },
         tabBarIconStyle: { marginTop: 2 },
-        tabBarButton: HapticTab,
+        tabBarButton: variant === 'strong' ? LiquidGlassTabButton : HapticTab,
       }}
     >
       <Tabs.Screen

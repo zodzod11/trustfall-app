@@ -14,12 +14,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { PortfolioCard } from '@/components/explore/PortfolioCard'
 import { TrustfallBrandMark, TrustfallScreenHeader } from '@/components/layout/TrustfallScreenHeader'
+import { LiquidGlassSurface } from '@/components/navigation/LiquidGlassSurface'
+import { getExploreNavStripTokens } from '@/constants/navigationGlass'
 import { STORAGE_RECENT_SEARCHES_V1 } from '@/constants/storage-keys'
+import { useNavigationGlass } from '@/contexts/NavigationGlassContext'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
 import { useExplorePortfolio } from '@/hooks/useExplorePortfolio'
 import { onboardingApi } from '@/lib/onboarding'
-import { buildPortfolioFeed } from '@/lib/buildPortfolioFeed'
+import { formatDisplayLabel } from '@/lib/formatDisplayLabel'
 import { useExplorePersonalization } from '../../../../src/hooks/useExplorePersonalization'
+import { interleaveExploreItemsByCategory } from '../../../../src/lib/explore/interleaveByCategory'
 import { orderExploreByPersonalization } from '../../../../src/lib/explore/orderExploreByPersonalization'
 import type { PortfolioFeedItem, ServiceCategory } from '@/types'
 
@@ -27,6 +31,8 @@ const SUGGESTED = ['Low taper fade', 'Soft glam makeup', 'Natural braids']
 
 const LIST_H_PADDING = TrustfallSpacing.lg * 2
 const GRID_COLUMN_GAP = TrustfallSpacing.md
+/** Vertical gap between the two grid rows when sizing for a 2×2 viewport (matches `columnWrap` margin). */
+const GRID_ROW_GAP = TrustfallSpacing.sm
 
 export default function ExploreScreen() {
   const { width: windowWidth } = useWindowDimensions()
@@ -39,10 +45,12 @@ export default function ExploreScreen() {
   const [selectedTag, setSelectedTag] = useState('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  /** Height of the FlatList area — used so grid shows exactly 2×2 cards and list one card per screen. */
+  const [listViewportHeight, setListViewportHeight] = useState(0)
 
-  const seedFeed = useMemo(() => buildPortfolioFeed(), [])
-  const { items: remoteItems, remoteEnabled, refetch } = useExplorePortfolio()
-  const portfolioFeed = remoteEnabled && remoteItems.length > 0 ? remoteItems : seedFeed
+  const { items: remoteItems, loading, error, remoteEnabled, refetch } = useExplorePortfolio()
+  const hasRemoteCatalog = remoteItems.length > 0
+  const portfolioFeed = remoteItems
 
   const categories = useMemo(
     () =>
@@ -87,10 +95,10 @@ export default function ExploreScreen() {
     [portfolioFeed, selectedCategory, selectedLocation, selectedTag],
   )
 
-  const orderedForDisplay = useMemo(
-    () => orderExploreByPersonalization(filteredItems, explorePersonalization.prefs),
-    [filteredItems, explorePersonalization.prefs],
-  )
+  const orderedForDisplay = useMemo(() => {
+    const ordered = orderExploreByPersonalization(filteredItems, explorePersonalization.prefs)
+    return interleaveExploreItemsByCategory(ordered)
+  }, [filteredItems, explorePersonalization.prefs])
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -147,33 +155,111 @@ export default function ExploreScreen() {
     Math.floor((windowWidth - LIST_H_PADDING - GRID_COLUMN_GAP) / 2),
   )
 
+  const gridSlotHeight = useMemo(() => {
+    if (listViewportHeight <= 0) return undefined
+    return (listViewportHeight - GRID_ROW_GAP) / 2
+  }, [listViewportHeight])
+
+  const listSlotHeight = useMemo(() => {
+    if (listViewportHeight <= 0) return undefined
+    return listViewportHeight
+  }, [listViewportHeight])
+
   const renderItem = useCallback(
     ({ item }: { item: PortfolioFeedItem }) => (
       <View
         style={
           viewMode === 'grid'
-            ? [styles.gridCell, { width: gridCellWidth }]
+            ? [
+                styles.gridCell,
+                listViewportHeight > 0 && styles.gridCellMeasured,
+                { width: gridCellWidth },
+              ]
             : styles.listCell
         }
       >
-        <PortfolioCard item={item} view={viewMode} />
+        <PortfolioCard
+          item={item}
+          view={viewMode}
+          gridSlotHeight={viewMode === 'grid' ? gridSlotHeight : undefined}
+          listSlotHeight={viewMode === 'list' ? listSlotHeight : undefined}
+        />
       </View>
     ),
-    [viewMode, gridCellWidth],
+    [viewMode, gridCellWidth, gridSlotHeight, listSlotHeight, listViewportHeight],
   )
 
   const keyExtractor = useCallback((item: PortfolioFeedItem) => item.id, [])
 
   const filterSummary = useMemo(() => {
     const parts: string[] = []
-    if (selectedCategory !== 'all') parts.push(selectedCategory)
+    if (selectedCategory !== 'all') parts.push(formatDisplayLabel(selectedCategory))
     if (selectedLocation !== 'all') parts.push(selectedLocation)
-    if (selectedTag !== 'all') parts.push(selectedTag)
+    if (selectedTag !== 'all') parts.push(formatDisplayLabel(selectedTag))
     return parts.length > 0 ? parts.join(' · ') : 'All categories & locations'
   }, [selectedCategory, selectedLocation, selectedTag])
 
   const hasActiveFilters =
     selectedCategory !== 'all' || selectedLocation !== 'all' || selectedTag !== 'all'
+
+  const { variant: navGlassVariant } = useNavigationGlass()
+  const { useGlassStrip } = getExploreNavStripTokens(navGlassVariant)
+  const catalogBanner = useMemo(() => {
+    if (!remoteEnabled) {
+      return {
+        tone: 'info' as const,
+        title: 'Catalog unavailable',
+        body: 'This build is not configured for the live provider catalog yet.',
+      }
+    }
+    if (error) {
+      return {
+        tone: 'error' as const,
+        title: 'Couldn’t load live looks',
+        body: 'Pull to refresh or retry once your connection is stable.',
+      }
+    }
+    if (loading && !hasRemoteCatalog) {
+      return {
+        tone: 'info' as const,
+        title: 'Loading latest looks',
+        body: 'Explore is fetching the live catalog.',
+      }
+    }
+    if (!loading && remoteEnabled && !hasRemoteCatalog) {
+      return {
+        tone: 'info' as const,
+        title: 'No live looks yet',
+        body: 'There are no published looks in the live catalog yet.',
+      }
+    }
+    return null
+  }, [error, hasRemoteCatalog, loading, remoteEnabled])
+
+  const emptyState = useMemo(() => {
+    if (!remoteEnabled) {
+      return {
+        title: 'Catalog unavailable',
+        body: 'This build is not configured for the live provider catalog yet.',
+      }
+    }
+    if (error) {
+      return {
+        title: 'Couldn’t load live looks',
+        body: 'Pull to refresh or retry once your connection is stable.',
+      }
+    }
+    if (!loading && !hasRemoteCatalog) {
+      return {
+        title: 'No live looks yet',
+        body: 'There are no published looks in the live catalog yet.',
+      }
+    }
+    return {
+      title: 'No looks match',
+      body: 'Try widening filters or clearing search.',
+    }
+  }, [error, hasRemoteCatalog, loading, remoteEnabled])
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -182,7 +268,10 @@ export default function ExploreScreen() {
         subtitle="Style-first discovery"
         left={<TrustfallBrandMark />}
         right={
-          <Pressable style={styles.searchToggle} onPress={() => setSearchOpen((o) => !o)}>
+          <Pressable
+            style={[styles.searchToggle, navGlassVariant !== 'control' && styles.searchToggleOnGlass]}
+            onPress={() => setSearchOpen((o) => !o)}
+          >
             <Text style={styles.searchToggleText}>{searchOpen ? 'Done' : 'Search'}</Text>
           </Pressable>
         }
@@ -219,51 +308,95 @@ export default function ExploreScreen() {
         </View>
       ) : null}
 
-      {explorePersonalization.hint ? (
-        <Text style={styles.personalizationHint}>{explorePersonalization.hint}</Text>
-      ) : null}
-
-      {/* View mode: compact toggle, right-aligned */}
-      <View style={styles.viewModeRow}>
-        <Text style={styles.viewModeLabel}>View</Text>
-        <View style={styles.segment}>
-          <Pressable
-            onPress={() => setViewMode('grid')}
-            style={[styles.segmentBtn, viewMode === 'grid' && styles.segmentBtnActive]}
-          >
-            <Text style={[styles.segmentLabel, viewMode === 'grid' && styles.segmentLabelActive]}>
-              Grid
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode('list')}
-            style={[styles.segmentBtn, viewMode === 'list' && styles.segmentBtnActive]}
-          >
-            <Text style={[styles.segmentLabel, viewMode === 'list' && styles.segmentLabelActive]}>
-              List
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
+      {/* View toggle + filters — strong tier: one glass strip; inner controls stay flat (no glass-on-glass). */}
       <View style={styles.filtersOuter}>
-        <Pressable
-          style={styles.filtersTrigger}
-          onPress={() => setFiltersOpen((o) => !o)}
-          accessibilityRole="button"
-          accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
-        >
-          <View style={styles.filtersTriggerTextCol}>
-            <View style={styles.filtersTriggerTitleRow}>
-              <Text style={styles.filtersTriggerTitle}>Filters</Text>
-              {hasActiveFilters ? <View style={styles.filterActiveDot} /> : null}
+        {useGlassStrip ? (
+          <LiquidGlassSurface variant="strong" contentStyle={styles.exploreGlassInner}>
+            <View style={styles.controlsRow}>
+              <Pressable
+                style={[styles.filtersTrigger, styles.filtersTriggerOnGlass]}
+                onPress={() => setFiltersOpen((o) => !o)}
+                accessibilityRole="button"
+                accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
+              >
+                <View style={styles.filtersTriggerTextCol}>
+                  <View style={styles.filtersTriggerTitleRow}>
+                    <Text style={styles.filtersTriggerTitle}>Filters</Text>
+                    {hasActiveFilters ? <View style={styles.filterActiveDot} /> : null}
+                  </View>
+                  <Text style={styles.filtersTriggerSummary} numberOfLines={1}>
+                    {filterSummary}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>{filtersOpen ? '▾' : '▸'}</Text>
+              </Pressable>
+              <View style={styles.controlsLeft}>
+                <Text style={styles.viewModeLabel}>View</Text>
+                <View style={[styles.segment, styles.segmentOnGlass]}>
+                  <Pressable
+                    onPress={() => setViewMode('grid')}
+                    style={[styles.segmentBtn, viewMode === 'grid' && styles.segmentBtnActive]}
+                  >
+                    <Text style={[styles.segmentLabel, viewMode === 'grid' && styles.segmentLabelActive]}>
+                      Grid
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setViewMode('list')}
+                    style={[styles.segmentBtn, viewMode === 'list' && styles.segmentBtnActive]}
+                  >
+                    <Text style={[styles.segmentLabel, viewMode === 'list' && styles.segmentLabelActive]}>
+                      List
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
-            <Text style={styles.filtersTriggerSummary} numberOfLines={1}>
-              {filterSummary}
-            </Text>
-          </View>
-          <Text style={styles.chevron}>{filtersOpen ? '▾' : '▸'}</Text>
-        </Pressable>
+          </LiquidGlassSurface>
+        ) : (
+          <>
+            <View style={styles.controlsRow}>
+              <Pressable
+                style={styles.filtersTrigger}
+                onPress={() => setFiltersOpen((o) => !o)}
+                accessibilityRole="button"
+                accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
+              >
+                <View style={styles.filtersTriggerTextCol}>
+                  <View style={styles.filtersTriggerTitleRow}>
+                    <Text style={styles.filtersTriggerTitle}>Filters</Text>
+                    {hasActiveFilters ? <View style={styles.filterActiveDot} /> : null}
+                  </View>
+                  <Text style={styles.filtersTriggerSummary} numberOfLines={1}>
+                    {filterSummary}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>{filtersOpen ? '▾' : '▸'}</Text>
+              </Pressable>
+              <View style={styles.controlsLeft}>
+                <Text style={styles.viewModeLabel}>View</Text>
+                <View style={styles.segment}>
+                  <Pressable
+                    onPress={() => setViewMode('grid')}
+                    style={[styles.segmentBtn, viewMode === 'grid' && styles.segmentBtnActive]}
+                  >
+                    <Text style={[styles.segmentLabel, viewMode === 'grid' && styles.segmentLabelActive]}>
+                      Grid
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setViewMode('list')}
+                    style={[styles.segmentBtn, viewMode === 'list' && styles.segmentBtnActive]}
+                  >
+                    <Text style={[styles.segmentLabel, viewMode === 'list' && styles.segmentLabelActive]}>
+                      List
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
 
         {filtersOpen ? (
           <View style={styles.filtersDropdown}>
@@ -288,7 +421,9 @@ export default function ExploreScreen() {
                     onPress={() => setSelectedCategory(c)}
                     style={[styles.filterChip, selectedCategory === c && styles.filterChipOn]}
                   >
-                    <Text style={[styles.filterText, selectedCategory === c && styles.filterTextOn]}>{c}</Text>
+                    <Text style={[styles.filterText, selectedCategory === c && styles.filterTextOn]}>
+                      {formatDisplayLabel(c)}
+                    </Text>
                   </Pressable>
                 ))}
               </ScrollView>
@@ -338,7 +473,9 @@ export default function ExploreScreen() {
                     onPress={() => setSelectedTag((cur) => (cur === t ? 'all' : t))}
                     style={[styles.tagChip, selectedTag === t && styles.tagChipOn]}
                   >
-                    <Text style={[styles.tagChipText, selectedTag === t && styles.tagChipTextOn]}>{t}</Text>
+                    <Text style={[styles.tagChipText, selectedTag === t && styles.tagChipTextOn]}>
+                      {formatDisplayLabel(t)}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -347,25 +484,69 @@ export default function ExploreScreen() {
         ) : null}
       </View>
 
-      <FlatList
-        data={data}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        numColumns={viewMode === 'grid' ? 2 : 1}
-        key={viewMode}
-        removeClippedSubviews={viewMode === 'grid' ? false : undefined}
-        contentContainerStyle={styles.listContent}
-        columnWrapperStyle={viewMode === 'grid' ? styles.columnWrap : undefined}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TrustfallColors.primary} />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No looks match</Text>
-            <Text style={styles.emptyBody}>Try widening filters or clearing search.</Text>
+      {catalogBanner ? (
+        <View
+          style={[
+            styles.catalogBanner,
+            catalogBanner.tone === 'error' ? styles.catalogBannerError : styles.catalogBannerInfo,
+          ]}
+        >
+          <View style={styles.catalogBannerBody}>
+            <Text style={styles.catalogBannerTitle}>{catalogBanner.title}</Text>
+            <Text style={styles.catalogBannerText}>{catalogBanner.body}</Text>
           </View>
-        }
-      />
+          {(error || !hasRemoteCatalog) && remoteEnabled ? (
+            <Pressable style={styles.catalogBannerAction} onPress={() => void refetch()}>
+              <Text style={styles.catalogBannerActionText}>Retry</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={styles.listViewport} onLayout={(e) => setListViewportHeight(e.nativeEvent.layout.height)}>
+        <FlatList
+          data={data}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          key={viewMode}
+          removeClippedSubviews={viewMode === 'grid' ? false : undefined}
+          contentContainerStyle={[
+            styles.listContent,
+            viewMode === 'list' && styles.listContentTight,
+            viewMode === 'list' && listViewportHeight > 0 && styles.listContentOnePerScreen,
+            viewMode === 'grid' && listViewportHeight > 0 && styles.listContentGridMeasured,
+          ]}
+          columnWrapperStyle={
+            viewMode === 'grid'
+              ? [styles.columnWrap, listViewportHeight > 0 && styles.columnWrapMeasured]
+              : undefined
+          }
+          snapToInterval={
+            viewMode === 'list' && listViewportHeight > 0 ? listViewportHeight : undefined
+          }
+          snapToAlignment="start"
+          decelerationRate={viewMode === 'list' && listViewportHeight > 0 ? 'fast' : undefined}
+          getItemLayout={
+            viewMode === 'list' && listViewportHeight > 0
+              ? (_, index) => ({
+                  length: listViewportHeight,
+                  offset: listViewportHeight * index,
+                  index,
+                })
+              : undefined
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TrustfallColors.primary} />
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>{emptyState.title}</Text>
+              <Text style={styles.emptyBody}>{emptyState.body}</Text>
+            </View>
+          }
+        />
+      </View>
     </SafeAreaView>
   )
 }
@@ -379,6 +560,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(47,99,230,0.1)',
+  },
+  /** Softer chip on floating glass header — avoids stacked frosted controls. */
+  searchToggleOnGlass: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
   searchToggleText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3, color: TrustfallColors.primary },
   searchBlock: {
@@ -417,17 +603,22 @@ const styles = StyleSheet.create({
   recentText: { fontSize: 12, color: TrustfallColors.accent },
   personalizationHint: {
     paddingHorizontal: TrustfallSpacing.lg,
-    paddingBottom: TrustfallSpacing.sm,
-    fontSize: 12,
-    lineHeight: 18,
+    paddingBottom: TrustfallSpacing.xs,
+    fontSize: 11,
+    lineHeight: 15,
     color: TrustfallColors.muted,
   },
-  viewModeRow: {
+  controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: TrustfallSpacing.lg,
-    marginBottom: TrustfallSpacing.md,
+    gap: TrustfallSpacing.sm,
+    marginBottom: TrustfallSpacing.sm,
+  },
+  controlsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TrustfallSpacing.sm,
+    flexShrink: 0,
   },
   viewModeLabel: {
     fontSize: 10,
@@ -438,19 +629,29 @@ const styles = StyleSheet.create({
   },
   filtersOuter: {
     paddingHorizontal: TrustfallSpacing.lg,
-    marginBottom: TrustfallSpacing.md,
+    marginBottom: TrustfallSpacing.sm,
+  },
+  exploreGlassInner: {
+    padding: TrustfallSpacing.sm,
+    gap: TrustfallSpacing.sm,
   },
   filtersTrigger: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: TrustfallSpacing.md,
-    paddingVertical: TrustfallSpacing.md,
-    paddingHorizontal: TrustfallSpacing.lg,
+    gap: TrustfallSpacing.sm,
+    paddingVertical: TrustfallSpacing.sm,
+    paddingHorizontal: TrustfallSpacing.md,
     borderRadius: TrustfallRadius.lg,
     borderWidth: 1,
     borderColor: TrustfallColors.border,
     backgroundColor: TrustfallColors.surface,
+  },
+  filtersTriggerOnGlass: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
   filtersTriggerTextCol: {
     flex: 1,
@@ -512,6 +713,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: TrustfallColors.surface,
   },
+  segmentOnGlass: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
   segmentBtn: {
     paddingVertical: TrustfallSpacing.xs + 1,
     paddingHorizontal: TrustfallSpacing.md,
@@ -571,18 +776,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: TrustfallColors.secondary,
-    textTransform: 'lowercase',
   },
   tagChipTextOn: {
     color: TrustfallColors.foreground,
   },
-  listContent: { paddingHorizontal: TrustfallSpacing.lg, paddingBottom: 100, gap: TrustfallSpacing.lg },
+  catalogBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TrustfallSpacing.md,
+    marginHorizontal: TrustfallSpacing.lg,
+    marginBottom: TrustfallSpacing.md,
+    padding: TrustfallSpacing.md,
+    borderRadius: TrustfallRadius.xl,
+    borderWidth: 1,
+  },
+  catalogBannerInfo: {
+    backgroundColor: TrustfallColors.surface,
+    borderColor: TrustfallColors.border,
+  },
+  catalogBannerError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  catalogBannerBody: { flex: 1, gap: 4 },
+  catalogBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: TrustfallColors.foreground,
+  },
+  catalogBannerText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: TrustfallColors.muted,
+  },
+  catalogBannerAction: {
+    paddingHorizontal: TrustfallSpacing.md,
+    paddingVertical: TrustfallSpacing.sm,
+    borderRadius: 999,
+    backgroundColor: 'rgba(47,99,230,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(47,99,230,0.24)',
+  },
+  catalogBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: TrustfallColors.primary,
+  },
+  listViewport: { flex: 1 },
+  listContent: { paddingHorizontal: TrustfallSpacing.lg, paddingBottom: 88, gap: TrustfallSpacing.md },
+  listContentTight: { gap: TrustfallSpacing.sm },
+  /** No extra gap between list rows — each row is one viewport tall. */
+  listContentOnePerScreen: { gap: 0 },
+  /** Row spacing comes only from `columnWrap` so 2×2 math matches the measured viewport. */
+  listContentGridMeasured: { gap: 0 },
   columnWrap: {
     justifyContent: 'space-between',
-    marginBottom: TrustfallSpacing.sm,
+    marginBottom: TrustfallSpacing.xs,
+  },
+  columnWrapMeasured: {
+    marginBottom: GRID_ROW_GAP,
   },
   gridCell: {
-    marginBottom: TrustfallSpacing.sm,
+    marginBottom: TrustfallSpacing.xs,
+  },
+  gridCellMeasured: {
+    marginBottom: 0,
   },
   listCell: { width: '100%' },
   empty: { padding: TrustfallSpacing.xxl, alignItems: 'center' },

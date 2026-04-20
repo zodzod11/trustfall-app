@@ -2,10 +2,15 @@ import { Pressable, StyleSheet, Text, type PressableProps, type TextStyle, type 
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
 
 type Variant = 'primary' | 'secondary' | 'ghost'
+type Size = 'default' | 'compact'
 
 type TfButtonProps = PressableProps & {
   title: string
   variant?: Variant
+  /** Compact padding for toolbars or dense rows (e.g. Match Attach / Photo / Saved). */
+  size?: Size
+  /** Use 2 in tight grid CTAs so short labels like “Request” don’t ellipsize. */
+  titleNumberOfLines?: number
   style?: ViewStyle
   textStyle?: TextStyle
 }
@@ -13,6 +18,8 @@ type TfButtonProps = PressableProps & {
 export function TfButton({
   title,
   variant = 'primary',
+  size = 'default',
+  titleNumberOfLines = 1,
   style,
   textStyle,
   disabled,
@@ -24,6 +31,7 @@ export function TfButton({
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,
+        size === 'compact' && styles.compact,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
@@ -34,8 +42,11 @@ export function TfButton({
       {...rest}
     >
       <Text
+        numberOfLines={titleNumberOfLines}
+        ellipsizeMode="tail"
         style={[
           styles.label,
+          size === 'compact' && styles.labelCompact,
           variant === 'primary' && styles.labelPrimary,
           variant === 'secondary' && styles.labelSecondary,
           variant === 'ghost' && styles.labelGhost,
@@ -55,6 +66,11 @@ const styles = StyleSheet.create({
     borderRadius: TrustfallRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  compact: {
+    minHeight: 44,
+    paddingHorizontal: TrustfallSpacing.md,
+    paddingVertical: TrustfallSpacing.sm,
   },
   primary: {
     backgroundColor: TrustfallColors.primary,
@@ -76,6 +92,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  labelCompact: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   labelPrimary: {
     color: TrustfallColors.primaryForeground,

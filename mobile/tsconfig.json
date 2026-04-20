@@ -21,6 +21,7 @@
     "../src/lib/explore/personalizationFromOnboarding.ts",
     "../src/lib/explore/orderExploreByPersonalization.ts",
     "../src/lib/explore/applyExploreFilters.ts",
+    "../src/lib/explore/interleaveByCategory.ts",
     "../src/lib/explore/types.ts"
   ]
 }

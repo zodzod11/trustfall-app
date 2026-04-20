@@ -3,10 +3,16 @@ import { Link } from 'react-router-dom'
 import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { FilterBar } from '../components/explore/FilterBar'
 import { PortfolioCard, type PortfolioFeedItem } from '../components/explore/PortfolioCard'
+import { useBrowserOnline } from '../hooks/useBrowserOnline'
 import { useExplorePersonalization } from '../hooks/useExplorePersonalization'
 import { useExplorePortfolio } from '../hooks/useExplorePortfolio'
-import { applyExploreFilters, orderExploreByPersonalization } from '../lib/explore'
+import {
+  applyExploreFilters,
+  interleaveExploreItemsByCategory,
+  orderExploreByPersonalization,
+} from '../lib/explore'
 import { createClient } from '../lib/client'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
 import { createOnboardingApi } from '../services/onboarding'
 import type { ServiceCategory } from '../types'
 import { cn } from '../utils/cn'
@@ -27,6 +33,7 @@ function readInitialRecentSearches() {
 }
 
 export function ExplorePage() {
+  const isOnline = useBrowserOnline()
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -40,7 +47,7 @@ export function ExplorePage() {
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [selectedTag, setSelectedTag] = useState('all')
 
-  const { items: portfolioFeed, loading: catalogLoading, error: catalogError } =
+  const { items: portfolioFeed, loading: catalogLoading, error: catalogError, refetch } =
     useExplorePortfolio()
 
   const exploreOnboardingApi = useMemo(() => createOnboardingApi(createClient()), [])
@@ -110,10 +117,10 @@ export function ExplorePage() {
     return () => window.clearTimeout(timer)
   }, [isSearchOpen])
 
-  const orderedForDisplay = useMemo(
-    () => orderExploreByPersonalization(filteredItems, explorePersonalization.prefs),
-    [filteredItems, explorePersonalization.prefs],
-  )
+  const orderedForDisplay = useMemo(() => {
+    const ordered = orderExploreByPersonalization(filteredItems, explorePersonalization.prefs)
+    return interleaveExploreItemsByCategory(ordered)
+  }, [filteredItems, explorePersonalization.prefs])
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -233,10 +240,27 @@ export function ExplorePage() {
         </div>
       </div>
 
+      {!isOnline ? (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
+          You&apos;re offline. Explore may show cached content or fail to refresh until your connection returns.
+        </div>
+      ) : null}
+
       {catalogError ? (
-        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {catalogError}
-        </p>
+        <div className="tf-card space-y-3 border border-destructive/40 bg-destructive/10 px-4 py-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">Couldn&apos;t load the live catalog</p>
+            <p className="text-xs text-destructive">{catalogError}</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={() => void refetch()} className="tf-button-primary w-full sm:w-auto">
+              Retry
+            </button>
+            <p className="text-xs text-muted sm:self-center">
+              Check your connection and try again.
+            </p>
+          </div>
+        </div>
       ) : null}
 
       {explorePersonalization.hint ? (
@@ -268,7 +292,7 @@ export function ExplorePage() {
         ))}
       </div>
 
-      {!catalogLoading && orderedForDisplay.length === 0 ? (
+      {!catalogLoading && !catalogError && orderedForDisplay.length === 0 ? (
         <EmptyState
           category={selectedCategory}
           location={selectedLocation}
@@ -303,16 +327,24 @@ type EmptyStateProps = {
 }
 
 function EmptyState({ category, location, tag }: EmptyStateProps) {
+  const activeFilters = [
+    category !== 'all' ? `category: ${formatDisplayLabel(category)}` : null,
+    location !== 'all' ? `location: ${location}` : null,
+    tag !== 'all' ? `tag: ${formatDisplayLabel(tag)}` : null,
+  ].filter(Boolean)
+
   return (
     <div className="tf-card px-5 py-8 text-center">
       <p className="text-base font-semibold text-secondary">
-        No portfolio matches these filters yet.
+        No looks match this combination yet.
       </p>
-      <p className="mt-1 text-xs text-muted">
-        Category: {category} · Location: {location} · Tag: {tag}
-      </p>
+      {activeFilters.length > 0 ? (
+        <p className="mt-1 text-xs text-muted">{activeFilters.join(' · ')}</p>
+      ) : (
+        <p className="mt-1 text-xs text-muted">The live catalog does not have matching looks right now.</p>
+      )}
       <p className="mt-3 text-xs text-muted/90">
-        Try broadening one filter to see more premium looks.
+        Clear one filter, try a nearby city, or search by a broader style term to see more options.
       </p>
     </div>
   )
@@ -432,9 +464,9 @@ function SearchOverlay({
               </div>
             ) : (
               <div className="tf-card mt-3 px-5 py-8 text-center">
-                <p className="text-base font-semibold text-secondary">No results found</p>
+                <p className="text-base font-semibold text-secondary">No looks matched that search</p>
                 <p className="mt-1 text-xs text-muted">
-                  Try a different style term, category, or location.
+                  Try a broader style term, a pro name, or a nearby city to keep exploring.
                 </p>
               </div>
             )}

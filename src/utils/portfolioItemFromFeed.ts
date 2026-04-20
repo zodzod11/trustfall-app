@@ -11,6 +11,7 @@ export function portfolioItemFromFeed(item: PortfolioFeedItem): PortfolioItem {
     serviceTitle: item.serviceTitle,
     tags: item.tags,
     category: item.category,
+    ...(item.description?.trim() ? { description: item.description.trim() } : {}),
   }
 }
 
@@ -30,6 +31,7 @@ export function professionalFromFeedItems(
     city: f.location,
     rating: f.professionalRating ?? 0,
     reviewCount: f.professionalReviewCount ?? 0,
+    requestCount: f.professionalRequestCount ?? 0,
     yearsExperience: f.professionalYearsExperience ?? 0,
     about: f.professionalAbout ?? '',
     bookingPhone: f.professionalPhone,

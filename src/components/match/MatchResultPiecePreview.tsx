@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import { formatDisplayLabel } from '../../lib/formatDisplayLabel'
+import { toDialablePhoneNumber } from '../../lib/phone'
 import type { MatchResultsRankedProfessional } from '../../types'
 import { findPortfolioItemById } from '../../utils/portfolioLookup'
 import { BeforeAfterDisplay } from '../explore/BeforeAfterDisplay'
@@ -81,13 +83,13 @@ export function MatchResultPiecePreview({
               Request
             </button>
             <a
-              href={`tel:${ranked.phoneNumber}`}
+              href={`tel:${toDialablePhoneNumber(ranked.phoneNumber)}`}
               className="tf-button-secondary px-2 py-2.5 text-center text-xs"
             >
               Call
             </a>
             <a
-              href={`sms:${ranked.phoneNumber}`}
+              href={`sms:${toDialablePhoneNumber(ranked.phoneNumber)}`}
               className="tf-button-secondary px-2 py-2.5 text-center text-xs"
             >
               Text
@@ -127,7 +129,7 @@ export function MatchResultPiecePreview({
 
         <div className="mt-6 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            {item.category}
+            {formatDisplayLabel(item.category)}
           </p>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             {item.serviceTitle}
@@ -166,9 +168,9 @@ export function MatchResultPiecePreview({
             {item.tags.map((tag) => (
               <span
                 key={tag}
-                className="tf-tag px-2.5 py-1 text-[10px] uppercase tracking-wide"
+                className="tf-tag px-2.5 py-1 text-[10px] tracking-wide"
               >
-                {tag}
+                {formatDisplayLabel(tag)}
               </span>
             ))}
           </div>
@@ -181,13 +183,13 @@ export function MatchResultPiecePreview({
             Request
           </button>
           <a
-            href={`tel:${ranked.phoneNumber}`}
+            href={`tel:${toDialablePhoneNumber(ranked.phoneNumber)}`}
             className="tf-button-secondary px-2 py-2.5 text-center text-xs"
           >
             Call
           </a>
           <a
-            href={`sms:${ranked.phoneNumber}`}
+            href={`sms:${toDialablePhoneNumber(ranked.phoneNumber)}`}
             className="tf-button-secondary px-2 py-2.5 text-center text-xs"
           >
             Text

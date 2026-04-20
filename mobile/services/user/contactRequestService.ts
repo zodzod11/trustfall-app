@@ -5,18 +5,17 @@
 import { supabase } from '@/lib/supabase'
 import type { ContactRequestRow } from '@/types/database'
 import type { CreateContactRequestInput } from '@/domain/user'
+import {
+  createRequest,
+  getRequestById,
+  getRequestHistory,
+} from '../../../src/lib/requests/service'
 import { authPostgrestError, fail, ok, validationError, type UserServiceResult } from './result'
-import { requireUuid } from './validation'
 
 const MESSAGE_MIN = 1
 const MESSAGE_MAX = 8000
 
 function validateContactRequest(input: CreateContactRequestInput): string | null {
-  const pe = requireUuid('professional_id', input.professional_id)
-  if (pe) return pe
-  const pie = requireUuid('portfolio_item_id', input.portfolio_item_id)
-  if (pie) return pie
-
   const msg = input.message?.trim() ?? ''
   if (msg.length < MESSAGE_MIN) return 'message is required'
   if (msg.length > MESSAGE_MAX) return `message must be at most ${MESSAGE_MAX} characters`
@@ -40,29 +39,28 @@ export async function createContactRequest(
 ): Promise<UserServiceResult<ContactRequestRow>> {
   const v = validateContactRequest(input)
   if (v) return fail(validationError(v))
-
-  const { data: userData, error: userErr } = await supabase.auth.getUser()
-  if (userErr) return fail(authPostgrestError(userErr.message))
-  if (!userData.user) return fail(authPostgrestError('Not authenticated'))
-
-  const insert = {
-    user_id: userData.user.id,
-    professional_id: input.professional_id,
-    portfolio_item_id: input.portfolio_item_id,
-    message: input.message.trim(),
-    preferred_date_text: input.preferred_date_text?.trim() ?? null,
-    client_name: input.client_name?.trim() ?? null,
-    client_email: input.client_email?.trim() ?? null,
-    client_phone: input.client_phone?.trim() ?? null,
-    pro_look_snapshot_path: input.pro_look_snapshot_path?.trim() || null,
-    inspiration_image_path: input.inspiration_image_path?.trim() || null,
-    current_photo_path: input.current_photo_path?.trim() || null,
-    status: 'pending' as const,
-  }
-
-  const { data, error } = await supabase.from('contact_requests').insert(insert).select().single()
-  if (error) return fail(error)
-  return ok(data as ContactRequestRow)
+  const result = await createRequest(supabase, {
+    professionalId: input.professional_id,
+    portfolioItemId: input.portfolio_item_id,
+    matchRequestId: input.match_request_id,
+    requestType: input.request_type,
+    message: input.message,
+    preferredDateText: input.preferred_date_text,
+    clientName: input.client_name,
+    clientEmail: input.client_email,
+    clientPhone: input.client_phone,
+    providerNameSnapshot: input.provider_name_snapshot ?? null,
+    portfolioTitleSnapshot: input.portfolio_title_snapshot ?? null,
+    categorySnapshot: input.category_snapshot ?? null,
+    portfolioImageUrlSnapshot: input.portfolio_image_url_snapshot ?? null,
+    proLookSnapshotPath: input.pro_look_snapshot_path ?? null,
+    imagePaths: {
+      inspiration_image_path: input.inspiration_image_path ?? null,
+      current_photo_path: input.current_photo_path ?? null,
+    },
+  })
+  if (result.error) return fail(authPostgrestError(result.error))
+  return ok(result.data as ContactRequestRow)
 }
 
 export async function updateContactRequestImagePaths(
@@ -82,10 +80,27 @@ export async function updateContactRequestImagePaths(
       ...(paths.inspiration_image_path !== undefined
         ? { inspiration_image_path: paths.inspiration_image_path }
         : {}),
-      ...(paths.current_photo_path !== undefined ? { current_photo_path: paths.current_photo_path } : {}),
+      ...(paths.current_photo_path !== undefined
+        ? { current_photo_path: paths.current_photo_path }
+        : {}),
     })
     .eq('id', contactRequestId)
+    .eq('user_id', userData.user.id)
 
   if (error) return fail(error)
   return ok(undefined)
+}
+
+export async function listMyContactRequests(): Promise<UserServiceResult<ContactRequestRow[]>> {
+  const result = await getRequestHistory(supabase, { limit: 100 })
+  if (result.error) return fail(authPostgrestError(result.error))
+  return ok((result.data ?? []) as ContactRequestRow[])
+}
+
+export async function getMyContactRequestById(
+  contactRequestId: string,
+): Promise<UserServiceResult<ContactRequestRow>> {
+  const result = await getRequestById(supabase, contactRequestId)
+  if (result.error) return fail(authPostgrestError(result.error))
+  return ok(result.data as ContactRequestRow)
 }

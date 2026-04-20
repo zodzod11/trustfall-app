@@ -2,14 +2,18 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TrustfallLogo } from '../components/brand/TrustfallLogo'
 import { usersSeed } from '../data/seed'
+import { useBrowserOnline } from '../hooks/useBrowserOnline'
 import { useExplorePortfolio } from '../hooks/useExplorePortfolio'
 import { useMatchSubmission } from '../hooks/useMatchSubmission'
 import { useSaved } from '../hooks/useSaved'
+import { normalizeSavedPortfolioItemId } from '../lib/demoCatalogIds'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
+import { persistMatchResultsRequest } from '../lib/match/resultsSession'
 import type { MatchRequestDraft } from '../types'
 import { cn } from '../utils/cn'
 import { persistMatchUploadSession } from '../utils/matchUploadSession'
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 const TAG_OPTIONS = [
   'bold',
@@ -36,6 +40,10 @@ const CATEGORY_VISION_SUGGESTIONS: Partial<
     '90s aesthetic blowout',
     'Natural silk press with body',
     'Low-maintenance balayage refresh',
+    'Low taper fade with texture',
+    'Burst fade + beard lineup',
+    'Classic taper with natural top',
+    'Crisp edge-up and shape-up',
   ],
   nails: [
     'Minimalist nail art',
@@ -48,12 +56,6 @@ const CATEGORY_VISION_SUGGESTIONS: Partial<
     'Micro realism floral tattoo',
     'Black and grey script concept',
     'Geometric sleeve starter concept',
-  ],
-  barber: [
-    'Low taper fade with texture',
-    'Burst fade + beard lineup',
-    'Classic taper with natural top',
-    'Crisp edge-up and shape-up',
   ],
   makeup: [
     'Soft glam makeup',
@@ -107,6 +109,7 @@ function getContextualVisionSuggestions(
 
 export function MatchPage() {
   const navigate = useNavigate()
+  const isOnline = useBrowserOnline()
   const activeUser = usersSeed[0]
   const { savedPortfolioItemIds } = useSaved()
   const { items: exploreFeed } = useExplorePortfolio()
@@ -145,14 +148,17 @@ export function MatchPage() {
     }
   }, [])
 
-  const hasVisionInput =
-    request.notes.trim().length > 0 ||
-    request.imageName.length > 0 ||
-    Boolean(request.currentPhotoName)
+  const hasInspo = request.notes.trim().length > 0 || Boolean(inspirationPreviewSrc)
+  const hasCurrentLook = Boolean(currentPhotoPreviewSrc) || Boolean(request.currentPhotoName)
+  const trimmedLocation = request.location.trim()
+  const locationLooksValid =
+    trimmedLocation.length >= 2 &&
+    (/^\d{5}$/.test(trimmedLocation) || /[a-zA-Z]{2,}/.test(trimmedLocation))
   const step0Valid = request.category.length > 0
-  const step1Valid = hasVisionInput
-  const step2Valid = request.location.trim().length > 0
-  const canSubmit = step0Valid && step1Valid && step2Valid
+  const step1Valid = hasInspo
+  const step2Valid = hasCurrentLook
+  const step3Valid = locationLooksValid
+  const canSubmit = step0Valid && step1Valid && step2Valid && step3Valid
   const cameraCaptureMode = getCameraCaptureMode(request.category)
   const visionSuggestions = useMemo(
     () =>
@@ -173,7 +179,7 @@ export function MatchPage() {
     }))
 
     return savedPortfolioItemIds
-      .map((id) => portfolioFeed.find((item) => item.id === id))
+      .map((id) => portfolioFeed.find((item) => item.id === normalizeSavedPortfolioItemId(id)))
       .filter((item): item is (typeof portfolioFeed)[number] => Boolean(item))
   }, [savedPortfolioItemIds, exploreFeed])
 
@@ -226,7 +232,7 @@ export function MatchPage() {
     tags: string[]
   }) {
     const tagLine = look.tags.length > 0 ? look.tags.slice(0, 3).join(', ') : 'inspired style'
-    return `I want a look similar to "${look.serviceTitle}" by ${look.professionalName}. Category: ${look.category}. Key style details: ${tagLine}.`
+    return `I want a look similar to "${look.serviceTitle}" by ${look.professionalName}. Category: ${formatDisplayLabel(look.category)}. Key style details: ${tagLine}.`
   }
 
   function toggleTag(tag: string) {
@@ -252,7 +258,8 @@ export function MatchPage() {
       window.alert(result.error)
       return
     }
-    navigate('/match/results', {
+    persistMatchResultsRequest(result.matchRequestId, request)
+    navigate(`/match/results?request=${encodeURIComponent(result.matchRequestId)}`, {
       state: { request, matchRequestId: result.matchRequestId },
     })
   }
@@ -261,6 +268,7 @@ export function MatchPage() {
     if (step === 0 && !step0Valid) return
     if (step === 1 && !step1Valid) return
     if (step === 2 && !step2Valid) return
+    if (step === 3 && !step3Valid) return
     setStep((current) => Math.min(current + 1, TOTAL_STEPS - 1))
   }
 
@@ -316,6 +324,12 @@ export function MatchPage() {
         </div>
       </header>
 
+      {!isOnline ? (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
+          You&apos;re offline. Match submission and live results will resume once your connection returns.
+        </div>
+      ) : null}
+
       {step === 0 ? (
         <section className="space-y-8 pt-3">
           <div className="space-y-2">
@@ -349,13 +363,10 @@ export function MatchPage() {
         <section className="space-y-8">
           <div className="space-y-4 text-center">
             <h1 className="text-[2.7rem] font-semibold leading-[1.06] tracking-tight text-foreground">
-              Describe
-              <br />
-              Your Vision
+              Inspiration
             </h1>
             <p className="mx-auto max-w-sm text-[1.12rem] leading-relaxed text-muted/90">
-              The more detail you provide, the better we can match you with an artist
-              who understands your specific aesthetic.
+              Add reference photos and context. You&apos;ll add your current look in the next step.
             </p>
           </div>
 
@@ -367,7 +378,7 @@ export function MatchPage() {
                 setRequest((current) => ({ ...current, notes: event.target.value }))
               }
               className="min-h-[18rem] w-full resize-none rounded-[1.55rem] border border-transparent bg-surface px-6 py-6 text-[1.5rem] font-medium leading-relaxed text-foreground placeholder:text-muted/45 focus:border-primary/30 focus:outline-none"
-              placeholder="Tell us your vibe, event, or specific details..."
+              placeholder="Optional: aesthetic, occasion, or specifics..."
             />
 
             <div className="flex items-center justify-between border-t border-white/5 px-6 py-4">
@@ -389,26 +400,16 @@ export function MatchPage() {
                   />
                 </svg>
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-                  Visual Brief
+                  Inspiration
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <label className="cursor-pointer rounded-full border border-border bg-surface-elevated px-3 py-2 text-[11px] font-medium text-secondary transition hover:border-primary/40 hover:text-foreground">
                   Attach
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-                <label className="cursor-pointer rounded-full border border-border bg-surface-elevated px-3 py-2 text-[11px] font-medium text-secondary transition hover:border-primary/40 hover:text-foreground">
-                  Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture={cameraCaptureMode}
-                    onChange={handleCurrentPhotoChange}
                     className="hidden"
                   />
                 </label>
@@ -427,44 +428,23 @@ export function MatchPage() {
               </div>
             </div>
 
-            {inspirationPreviewSrc || currentPhotoPreviewSrc ? (
-              <div className="grid grid-cols-1 gap-3 border-t border-white/5 px-4 pb-4 pt-3 sm:grid-cols-2 sm:px-5">
-                {inspirationPreviewSrc ? (
-                  <div>
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                      Inspiration
-                    </p>
-                    <div className="aspect-[4/5] max-h-[220px] w-full overflow-hidden rounded-xl bg-surface-elevated sm:max-h-[260px]">
-                      <img
-                        src={inspirationPreviewSrc}
-                        alt="Inspiration preview"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    {request.imageName ? (
-                      <p className="mt-2 truncate text-xs text-muted">{request.imageName}</p>
-                    ) : null}
+            {inspirationPreviewSrc ? (
+              <div className="grid grid-cols-1 gap-3 border-t border-white/5 px-4 pb-4 pt-3 sm:px-5">
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    Inspiration
+                  </p>
+                  <div className="aspect-[4/5] max-h-[220px] w-full overflow-hidden rounded-xl bg-surface-elevated sm:max-h-[260px]">
+                    <img
+                      src={inspirationPreviewSrc}
+                      alt="Inspiration preview"
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                ) : null}
-                {currentPhotoPreviewSrc ? (
-                  <div>
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                      Your photo
-                    </p>
-                    <div className="aspect-[4/5] max-h-[220px] w-full overflow-hidden rounded-xl bg-surface-elevated sm:max-h-[260px]">
-                      <img
-                        src={currentPhotoPreviewSrc}
-                        alt="Your photo preview"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    {request.currentPhotoName ? (
-                      <p className="mt-2 truncate text-xs text-muted">
-                        {request.currentPhotoName}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                  {request.imageName ? (
+                    <p className="mt-2 truncate text-xs text-muted">{request.imageName}</p>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -553,6 +533,58 @@ export function MatchPage() {
       ) : null}
 
       {step === 2 ? (
+        <section className="space-y-6">
+          <div className="space-y-2 text-center sm:text-left">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground">Your current look</h2>
+            <p className="text-[15px] leading-relaxed text-muted">
+              Add a clear photo of where you&apos;re starting from—length, color, and overall style.
+            </p>
+          </div>
+          <div className="tf-card space-y-4 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted/85">Photo</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="cursor-pointer rounded-full border border-border bg-surface-elevated px-3 py-2.5 text-center text-[11px] font-medium text-secondary transition hover:border-primary/40 hover:text-foreground">
+                Take photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture={cameraCaptureMode}
+                  onChange={handleCurrentPhotoChange}
+                  className="hidden"
+                />
+              </label>
+              <label className="cursor-pointer rounded-full border border-border bg-surface-elevated px-3 py-2.5 text-center text-[11px] font-medium text-secondary transition hover:border-primary/40 hover:text-foreground">
+                Choose photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCurrentPhotoChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {currentPhotoPreviewSrc ? (
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                  Current look
+                </p>
+                <div className="aspect-[4/5] max-h-[260px] w-full max-w-sm overflow-hidden rounded-xl bg-surface-elevated">
+                  <img
+                    src={currentPhotoPreviewSrc}
+                    alt="Your current look"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                {request.currentPhotoName ? (
+                  <p className="mt-2 truncate text-xs text-muted">{request.currentPhotoName}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {step === 3 ? (
         <section className="space-y-5">
           <div className="space-y-2">
             <h2 className="text-3xl font-semibold tracking-tight text-foreground">
@@ -575,13 +607,13 @@ export function MatchPage() {
                     type="button"
                     onClick={() => toggleTag(tag)}
                     className={cn(
-                      'rounded-xl border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] transition',
+                      'rounded-xl border px-4 py-2 text-[11px] font-bold tracking-[0.14em] transition',
                       request.tags.includes(tag)
                         ? 'border-primary bg-primary text-primary-foreground shadow-[0_10px_24px_-10px_rgba(47,99,230,0.78)]'
                         : 'border-border bg-surface-elevated text-muted hover:border-primary/50 hover:text-secondary',
                     )}
                   >
-                    {tag}
+                    {formatDisplayLabel(tag)}
                   </button>
                 ))}
               </div>
@@ -600,6 +632,11 @@ export function MatchPage() {
                 placeholder="City or zip"
                 className="tf-input h-11"
               />
+              {trimmedLocation.length > 0 && !locationLooksValid ? (
+                <p className="text-xs text-destructive/90">
+                  Enter a city name or 5-digit ZIP so we can match the right area.
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() =>
@@ -614,7 +651,7 @@ export function MatchPage() {
         </section>
       ) : null}
 
-      {step === 3 ? (
+      {step === 4 ? (
         <section className="space-y-4">
           <div className="space-y-2">
             <h2 className="text-3xl font-semibold tracking-tight text-foreground">
@@ -626,11 +663,20 @@ export function MatchPage() {
           </div>
           <div className="tf-card space-y-3 p-4 text-sm">
             <p className="text-secondary">
-              <span className="text-muted">Vision:</span>{' '}
-              {request.notes || 'No description added'}
+              <span className="text-muted">Inspiration:</span>{' '}
+              {inspirationPreviewSrc ? 'Photo attached' : request.notes ? 'Notes only' : '—'}
             </p>
             <p className="text-secondary">
-              <span className="text-muted">Category:</span> {request.category || 'Not set'}
+              <span className="text-muted">Notes:</span>{' '}
+              {request.notes || '—'}
+            </p>
+            <p className="text-secondary">
+              <span className="text-muted">Current look:</span>{' '}
+              {currentPhotoPreviewSrc ? 'Photo attached' : '—'}
+            </p>
+            <p className="text-secondary">
+              <span className="text-muted">Category:</span>{' '}
+              {request.category ? formatDisplayLabel(request.category) : 'Not set'}
             </p>
             <p className="text-secondary">
               <span className="text-muted">Location:</span>{' '}
@@ -641,9 +687,9 @@ export function MatchPage() {
                 {request.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="tf-tag px-2.5 py-1 text-[10px] uppercase tracking-wide"
+                    className="tf-tag px-2.5 py-1 text-[10px] tracking-wide"
                   >
-                    {tag}
+                    {formatDisplayLabel(tag)}
                   </span>
                 ))}
               </div>
@@ -672,13 +718,15 @@ export function MatchPage() {
               disabled={
                 (step === 0 && !step0Valid) ||
                 (step === 1 && !step1Valid) ||
-                (step === 2 && !step2Valid)
+                (step === 2 && !step2Valid) ||
+                (step === 3 && !step3Valid)
               }
               className={cn(
                 'tf-button-primary w-full',
                 ((step === 0 && !step0Valid) ||
                   (step === 1 && !step1Valid) ||
-                  (step === 2 && !step2Valid)) &&
+                  (step === 2 && !step2Valid) ||
+                  (step === 3 && !step3Valid)) &&
                   'pointer-events-none opacity-50',
               )}
             >

@@ -13,7 +13,9 @@ import {
   useOnboardingFlow,
 } from '../onboarding'
 import { applyOnboardingCredentials } from '../lib/auth/applyOnboardingCredentials'
+import { formatDisplayLabel } from '../lib/formatDisplayLabel'
 import { ensureAuthSession } from '../lib/match/ensureSession'
+import { formatPhoneNumber } from '../lib/phone'
 import { createOnboardingApi } from '../services/onboarding'
 import type { ServiceCategory } from '../types'
 import { createClient } from '../lib/client'
@@ -301,13 +303,13 @@ export function OnboardingPage() {
                       type="button"
                       onClick={() => toggleStyleTag(tag)}
                       className={cn(
-                        'rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-wide transition',
+                        'rounded-full border px-3 py-1.5 text-xs font-medium tracking-wide transition',
                         active
                           ? 'border-primary bg-primary/20 text-foreground'
                           : 'border-border bg-background text-muted hover:border-primary/50',
                       )}
                     >
-                      {tag}
+                      {formatDisplayLabel(tag)}
                     </button>
                   )
                 })}
@@ -370,13 +372,13 @@ export function OnboardingPage() {
                 <input
                   type="tel"
                   value={form.phone}
-                  onChange={(e) => patchDraft({ phone: e.target.value })}
+                  onChange={(e) => patchDraft({ phone: formatPhoneNumber(e.target.value) })}
                   className="tf-input"
                   placeholder="Mobile number"
                   autoComplete="tel"
                 />
               </label>
-              <p className="text-sm text-muted">Preferred first contact</p>
+              <p className="text-sm text-muted">Preferred Contact Method</p>
               <div className="space-y-2">
                 {(['text', 'call', 'email'] as ContactPreference[]).map((pref) => {
                   const active = form.contactPreference === pref
@@ -425,7 +427,7 @@ export function OnboardingPage() {
                 You&apos;re all set, {personalizedName}
               </h2>
               <p className="text-sm text-muted">
-                We&apos;ll prioritize {form.categories.join(', ')} looks near {form.location}.
+                We&apos;ll prioritize {form.categories.map(formatDisplayLabel).join(', ')} looks near {form.location}.
               </p>
               <div className="grid grid-cols-1 gap-2 text-sm">
                 <div className="tf-card px-3 py-2">
@@ -434,12 +436,14 @@ export function OnboardingPage() {
                 </div>
                 <div className="tf-card px-3 py-2">
                   <p className="text-xs uppercase tracking-wide text-muted">Phone</p>
-                  <p className="text-secondary">{form.phone.trim() || '—'}</p>
+                  <p className="text-secondary">{formatPhoneNumber(form.phone) || '—'}</p>
                 </div>
                 <div className="tf-card px-3 py-2">
                   <p className="text-xs uppercase tracking-wide text-muted">Style tags</p>
                   <p className="text-secondary">
-                    {form.styleTags.length > 0 ? form.styleTags.join(', ') : 'None selected'}
+                    {form.styleTags.length > 0
+                      ? form.styleTags.map(formatDisplayLabel).join(', ')
+                      : 'None selected'}
                   </p>
                 </div>
                 <div className="tf-card px-3 py-2">

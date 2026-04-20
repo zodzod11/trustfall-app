@@ -1,7 +1,23 @@
+import { BUCKETS, getSignedUrlForPath } from '@/lib/trustfallStorage'
+import { getMockProfileAvatarUrl } from '@/lib/mockProfileAvatar'
 import { supabase } from '@/lib/supabase'
 import type { ProfileRow } from '@/types/database/rows'
+import { parseOnboardingExtra } from '../../src/services/onboarding/extra'
+import type { ContactPreference } from '../../src/services/onboarding/types'
 
 /** Profile tab: signed-in user + `profiles` + `user_preferences`. */
+export type OnboardingPreferencesSummary = {
+  firstName: string
+  categories: string[]
+  styleTags: string[]
+  inspirationFileName: string
+  location: string
+  contactPreference: ContactPreference | null
+  email: string
+  phone: string
+  completedAt: string | null
+}
+
 export type ProfileScreenModel = {
   displayName: string
   email: string
@@ -9,6 +25,11 @@ export type ProfileScreenModel = {
   city: string
   preferredCategories: string[]
   budgetLabel: string | null
+  budgetMin: string
+  budgetMax: string
+  /** Ready for `Image` `source={{ uri }}` — signed URL or absolute URL from `profiles.avatar_url`. */
+  avatarDisplayUrl: string | null
+  onboarding: OnboardingPreferencesSummary
 }
 
 function initialsFromDisplayName(name: string): string {
@@ -40,6 +61,21 @@ function formatBudget(
   return null
 }
 
+/**
+ * `profiles.avatar_url` stores either an `https://` URL or an object key inside the `avatars` bucket
+ * (e.g. `{user_id}/avatar.jpg`). Returns a displayable URI or null.
+ */
+export async function resolveProfileAvatarDisplayUrl(
+  avatarUrl: string | null | undefined,
+): Promise<string | null> {
+  const raw = avatarUrl?.trim()
+  if (!raw) return null
+  if (/^https?:\/\//i.test(raw)) return raw
+  const { url, error } = await getSignedUrlForPath(BUCKETS.avatars, raw, 86_400)
+  if (error || !url) return null
+  return url
+}
+
 /** `null` = signed out; otherwise current user + DB profile/prefs. */
 export async function fetchProfileScreenModel(): Promise<ProfileScreenModel | null> {
   const { data: authData, error: authErr } = await supabase.auth.getUser()
@@ -51,14 +87,21 @@ export async function fetchProfileScreenModel(): Promise<ProfileScreenModel | nu
   const [profileRes, prefsRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('display_name, phone, city, budget_min, budget_max')
+      .select('display_name, phone, city, budget_min, budget_max, avatar_url')
       .eq('id', uid)
       .maybeSingle(),
-    supabase.from('user_preferences').select('preferred_categories').eq('user_id', uid).maybeSingle(),
+    supabase
+      .from('user_preferences')
+      .select('preferred_categories, onboarding_completed_at, extra')
+      .eq('user_id', uid)
+      .maybeSingle(),
   ])
 
   const p = profileRes.data as
-    | Pick<ProfileRow, 'display_name' | 'phone' | 'city' | 'budget_min' | 'budget_max'>
+    | Pick<
+        ProfileRow,
+        'display_name' | 'phone' | 'city' | 'budget_min' | 'budget_max' | 'avatar_url'
+      >
     | null
   const email = user.email?.trim() ?? ''
   const meta = user.user_metadata as Record<string, unknown> | undefined
@@ -75,6 +118,13 @@ export async function fetchProfileScreenModel(): Promise<ProfileScreenModel | nu
   const cats = Array.isArray(prefsRes.data?.preferred_categories)
     ? (prefsRes.data!.preferred_categories as string[])
     : []
+  const onboardingExtra = parseOnboardingExtra(prefsRes.data?.extra ?? {})
+
+  const onboardingEmail = onboardingExtra.contact_email?.trim() || email
+
+  const avatarDisplayUrl =
+    (await resolveProfileAvatarDisplayUrl(p?.avatar_url)) ??
+    getMockProfileAvatarUrl(`${uid}:${displayName || email}`)
 
   return {
     displayName,
@@ -83,5 +133,22 @@ export async function fetchProfileScreenModel(): Promise<ProfileScreenModel | nu
     city: p?.city?.trim() ?? '',
     preferredCategories: cats,
     budgetLabel: formatBudget(p?.budget_min, p?.budget_max),
+    budgetMin: p?.budget_min?.trim() ?? '',
+    budgetMax: p?.budget_max?.trim() ?? '',
+    avatarDisplayUrl,
+    onboarding: {
+      firstName: p?.display_name?.trim() ?? '',
+      categories: cats,
+      styleTags: onboardingExtra.style_tags ?? [],
+      inspirationFileName:
+        typeof onboardingExtra.inspiration_file_name === 'string'
+          ? onboardingExtra.inspiration_file_name.trim()
+          : '',
+      location: p?.city?.trim() ?? '',
+      contactPreference: onboardingExtra.contact_preference ?? null,
+      email: onboardingEmail,
+      phone: p?.phone?.trim() ?? '',
+      completedAt: prefsRes.data?.onboarding_completed_at ?? null,
+    },
   }
 }

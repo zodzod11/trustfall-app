@@ -63,8 +63,14 @@ Seeding the database with SQL does **not** require the service role key. The ser
 After `supabase db reset` (or migrations + seed), run:
 
 ```bash
+npm run seed:verify
 npm run db:verify
 ```
+
+`npm run seed:verify` is the lightweight contract check: it verifies that `supabase/seed.sql`,
+`src/data/seed.ts`, and `mobile/data/seed.ts` still agree on the demo user IDs, public catalog UUIDs,
+and seeded contact phone numbers. It also fails if old runtime-only aliases like `pro_001` or
+`p_hair_1` sneak back into the app seed files.
 
 Set in `.env.local` (or the environment):
 
@@ -72,4 +78,8 @@ Set in `.env.local` (or the environment):
 - `SUPABASE_ANON_KEY` or `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (for admin user lifecycle + `runMatchForRequest`)
 
-The script checks client/pro sign-in, profiles, owned professionals, portfolio CRUD as a pro, anonymous Explore counts, creating a `match_request`, running the rules-based matcher via the service client, reading `match_results` / `match_result_rows`, seeded match data, and several RLS expectations (no cross-user `match_requests`, no spoofed profiles, anon cannot read `match_results`).
+`npm run db:verify` now runs that contract check first, then checks client/pro sign-in, profiles,
+owned professionals, portfolio CRUD as a pro, anonymous Explore counts, creating a `match_request`,
+running the rules-based matcher via the service client, reading `match_results` /
+`match_result_rows`, seeded match data, and several RLS expectations (no cross-user
+`match_requests`, no spoofed profiles, anon cannot read `match_results`).

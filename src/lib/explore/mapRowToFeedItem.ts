@@ -19,7 +19,8 @@ function parseRating(value: string | number | null | undefined): number {
 /** Map DB category string to UI union (seed-aligned). */
 export function parseServiceCategory(raw: string): ServiceCategory {
   const v = raw.toLowerCase().trim()
-  if (v === 'barber' || v === 'hair' || v === 'nails' || v === 'makeup') {
+  if (v === 'barber') return 'hair'
+  if (v === 'hair' || v === 'nails' || v === 'makeup' || v === 'tattoo') {
     return v
   }
   return 'hair'
@@ -34,8 +35,10 @@ export function mapPortfolioRowToFeedItem(row: PortfolioExploreDbRow): Portfolio
   const price = parsePrice(row.price)
   const rating = parseRating(pro.rating)
   const reviewCount = pro.review_count ?? 0
+  const requestCount = pro.request_count ?? 0
   const years = pro.years_experience ?? 0
 
+  const desc = row.description?.trim()
   return {
     id: row.id,
     professionalId: pro.id,
@@ -43,6 +46,7 @@ export function mapPortfolioRowToFeedItem(row: PortfolioExploreDbRow): Portfolio
     afterImageUrl: afterUrl || beforeUrl,
     price,
     serviceTitle: row.service_title,
+    ...(desc ? { description: desc } : {}),
     tags,
     category,
     professionalName: pro.display_name,
@@ -52,6 +56,7 @@ export function mapPortfolioRowToFeedItem(row: PortfolioExploreDbRow): Portfolio
     professionalEmail: pro.booking_email ?? undefined,
     professionalRating: rating,
     professionalReviewCount: reviewCount,
+    professionalRequestCount: requestCount,
     professionalYearsExperience: years,
     professionalAbout: pro.about ?? '',
   }

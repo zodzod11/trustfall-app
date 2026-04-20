@@ -1,13 +1,22 @@
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as WebBrowser from 'expo-web-browser'
 import { router } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TfButton } from '@/components/ui/TfButton'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
+import {
+  buildOAuthRedirectUrl,
+  parseOAuthCallbackTokens,
+  setSessionFromOAuthTokens,
+  signInWithOAuthGoogle,
+} from '@/lib/auth/googleOAuth'
 import { ensureAuthSession } from '@/lib/ensureAuthSession'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+
+WebBrowser.maybeCompleteAuthSession()
 
 /** Circular logo badge — diameter in px; borderRadius = half for a true circle. */
 const LOGO_CIRCLE = 236
@@ -39,6 +48,56 @@ export default function WelcomeScreen() {
         setCreateErr(res.error)
         return
       }
+      router.replace('/onboarding')
+    } finally {
+      setCreateBusy(false)
+    }
+  }
+
+  async function onCreateAccountWithGoogle() {
+    setCreateErr(null)
+    if (!isSupabaseConfigured) {
+      setCreateErr('Add Supabase URL and key in your env.')
+      return
+    }
+
+    setCreateBusy(true)
+    try {
+      const redirectUrl = buildOAuthRedirectUrl('welcome')
+      const { data, error } = await signInWithOAuthGoogle(redirectUrl)
+      if (error) {
+        setCreateErr(error.message)
+        return
+      }
+      if (!data?.url) {
+        setCreateErr('Google sign-in could not be started.')
+        return
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl)
+      if (result.type !== 'success' || !result.url) {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          setCreateErr('Google sign-in did not complete.')
+        }
+        return
+      }
+
+      const { accessToken, refreshToken, errorDescription } = parseOAuthCallbackTokens(result.url)
+      if (errorDescription) {
+        setCreateErr(errorDescription)
+        return
+      }
+      if (!accessToken || !refreshToken) {
+        setCreateErr('Google sign-in did not return a valid session.')
+        return
+      }
+
+      const { error: sessionErr } = await setSessionFromOAuthTokens(accessToken, refreshToken)
+      if (sessionErr) {
+        setCreateErr(sessionErr.message)
+        return
+      }
+
       router.replace('/onboarding')
     } finally {
       setCreateBusy(false)
@@ -118,7 +177,15 @@ export default function WelcomeScreen() {
           {createBusy ? (
             <ActivityIndicator color={TrustfallColors.primary} />
           ) : (
-            <TfButton title="Create account" onPress={() => void onCreateAccount()} />
+            <>
+              <TfButton title="Continue with Google" onPress={() => void onCreateAccountWithGoogle()} />
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              <TfButton title="Create account" variant="secondary" onPress={() => void onCreateAccount()} />
+            </>
           )}
           <TfButton
             title="Sign in"
@@ -212,4 +279,20 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, lineHeight: 22, color: TrustfallColors.muted },
   bodyStrong: { fontWeight: '700', color: TrustfallColors.foreground },
   warn: { fontSize: 12, lineHeight: 18, color: '#fbbf24' },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TrustfallSpacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: TrustfallColors.border,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TrustfallColors.muted,
+    textTransform: 'uppercase',
+  },
 })

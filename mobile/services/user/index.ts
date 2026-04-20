@@ -24,4 +24,9 @@ export {
   savePortfolioItem,
 } from './savedPortfoliosService'
 
-export { createContactRequest, updateContactRequestImagePaths } from './contactRequestService'
+export {
+  createContactRequest,
+  getMyContactRequestById,
+  listMyContactRequests,
+  updateContactRequestImagePaths,
+} from './contactRequestService'

@@ -47,11 +47,14 @@ export interface CreatePortfolioItemInput {
   professional_id: string
   service_title: string
   category: string
+  service_type?: string | null
   price?: string | null
+  duration_minutes?: number | null
   before_image_path?: string | null
   after_image_path?: string | null
   sort_order?: number
   published?: boolean
+  description?: string | null
   /** Optional; can also call `replacePortfolioItemTags` after insert. */
   tags?: string[]
 }
@@ -59,7 +62,16 @@ export interface CreatePortfolioItemInput {
 export type UpdatePortfolioItemInput = Partial<
   Pick<
     CreatePortfolioItemInput,
-    'service_title' | 'category' | 'price' | 'before_image_path' | 'after_image_path' | 'sort_order' | 'published'
+    | 'service_title'
+    | 'category'
+    | 'service_type'
+    | 'price'
+    | 'duration_minutes'
+    | 'before_image_path'
+    | 'after_image_path'
+    | 'sort_order'
+    | 'published'
+    | 'description'
   >
 >
 

@@ -47,13 +47,19 @@ export interface ListMatchRequestsQuery {
 
 /** Insert into `contact_requests` (message to a pro for a look). */
 export interface CreateContactRequestInput {
-  professional_id: string
-  portfolio_item_id: string
+  professional_id?: string | null
+  portfolio_item_id?: string | null
+  match_request_id?: string | null
+  request_type?: 'direct' | 'match'
   message: string
   preferred_date_text?: string | null
   client_name?: string | null
   client_email?: string | null
   client_phone?: string | null
+  provider_name_snapshot?: string | null
+  portfolio_title_snapshot?: string | null
+  category_snapshot?: string | null
+  portfolio_image_url_snapshot?: string | null
   pro_look_snapshot_path?: string | null
   inspiration_image_path?: string | null
   current_photo_path?: string | null

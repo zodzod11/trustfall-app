@@ -23,14 +23,14 @@ export async function exampleWebOnboarding(client: SupabaseClient) {
 
   await onboarding.saveOnboardingProgress({
     firstName: 'Alex',
-    categories: ['barber', 'hair'],
+    categories: ['hair'],
     styleTags: ['clean'],
     location: 'Austin',
   })
 
   const done = await onboarding.completeOnboarding({
     firstName: 'Alex',
-    categories: ['barber'],
+    categories: ['hair'],
     styleTags: ['clean'],
     inspirationFileName: 'ref.jpg',
     location: 'Austin',

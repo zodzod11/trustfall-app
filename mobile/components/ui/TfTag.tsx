@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { TrustfallColors, TrustfallRadius, TrustfallSpacing } from '@/constants/trustfall-theme'
+import { formatDisplayLabel } from '@/lib/formatDisplayLabel'
 
 type TfTagProps = {
   label: string
@@ -8,7 +9,7 @@ type TfTagProps = {
 export function TfTag({ label }: TfTagProps) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.text}>{label}</Text>
+      <Text style={styles.text}>{formatDisplayLabel(label)}</Text>
     </View>
   )
 }
@@ -27,7 +28,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
-    textTransform: 'uppercase',
     color: TrustfallColors.foreground,
   },
 })

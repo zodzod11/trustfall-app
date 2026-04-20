@@ -22,10 +22,19 @@ const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
 const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+function missingEnvNames(): string[] {
+  const missing: string[] = []
+  if (!url) missing.push('SUPABASE_URL or VITE_SUPABASE_URL')
+  if (!anonKey) missing.push('SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY')
+  if (!serviceKey) missing.push('SUPABASE_SERVICE_ROLE_KEY')
+  return missing
+}
+
 app.post('/api/match-run', async (req, res) => {
   try {
-    if (!url || !anonKey || !serviceKey) {
-      res.status(500).json({ ok: false, error: 'Missing Supabase env (URL, anon, service role)' })
+    const missing = missingEnvNames()
+    if (missing.length > 0) {
+      res.status(500).json({ ok: false, error: `Missing Supabase env: ${missing.join(', ')}` })
       return
     }
 
@@ -82,4 +91,8 @@ app.post('/api/match-run', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`[match-engine] listening on http://localhost:${port}`)
+  const missing = missingEnvNames()
+  if (missing.length > 0) {
+    console.warn(`[match-engine] missing env: ${missing.join(', ')}`)
+  }
 })

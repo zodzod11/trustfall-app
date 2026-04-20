@@ -31,6 +31,7 @@ export type ProfessionalInsert = {
   city: string
   rating?: string | null
   review_count?: number
+  request_count?: number
   years_experience?: number | null
   about?: string | null
   booking_phone?: string | null
@@ -44,11 +45,14 @@ export type PortfolioItemInsert = {
   professional_id: string
   service_title: string
   category: string
+  service_type?: string | null
   price?: string | null
+  duration_minutes?: number | null
   before_image_path?: string | null
   after_image_path?: string | null
   sort_order?: number
   published?: boolean
+  description?: string | null
 }
 
 export type PortfolioItemTagInsert = {
@@ -109,18 +113,33 @@ export type SavedPortfolioInsert = {
   saved_at?: string
 }
 
+export type SavedProfessionalInsert = {
+  user_id: string
+  professional_id: string
+  saved_at?: string
+}
+
 export type ContactRequestInsert = {
   id?: string
   user_id: string
-  professional_id: string
-  portfolio_item_id: string
+  professional_id?: string | null
+  portfolio_item_id?: string | null
+  match_request_id?: string | null
+  request_type?: 'direct' | 'match'
   message: string
   preferred_date_text?: string | null
   client_name?: string | null
   client_email?: string | null
   client_phone?: string | null
+  provider_name_snapshot?: string | null
+  portfolio_title_snapshot?: string | null
+  category_snapshot?: string | null
+  portfolio_image_url_snapshot?: string | null
   pro_look_snapshot_path?: string | null
   inspiration_image_path?: string | null
   current_photo_path?: string | null
   status?: ContactRequestStatus
+  provider_notified_at?: string | null
+  notified_channels?: string[]
+  notification_error?: string | null
 }

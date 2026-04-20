@@ -11,6 +11,7 @@ export type PortfolioExploreDbRow = {
   after_image_path: string | null
   sort_order: number
   published: boolean
+  description?: string | null
   professionals: {
     id: string
     slug: string
@@ -19,6 +20,7 @@ export type PortfolioExploreDbRow = {
     city: string
     rating: string | number | null
     review_count: number
+    request_count?: number
     years_experience: number | null
     about: string | null
     category: string

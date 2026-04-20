@@ -1,4 +1,5 @@
 export { applyExploreFilters } from './applyExploreFilters'
+export { interleaveExploreItemsByCategory } from './interleaveByCategory'
 export { orderExploreByPersonalization } from './orderExploreByPersonalization'
 export {
   buildCandidateExploreFilters,
